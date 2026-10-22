@@ -1,0 +1,9 @@
+numpy
+pandas>=2.0
+matplotlib
+seaborn>=0.13
+scipy
+jupytext
+nbformat
+nbclient
+ipykernel
