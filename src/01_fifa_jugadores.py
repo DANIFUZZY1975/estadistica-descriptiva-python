@@ -42,6 +42,42 @@ print(df.isna().sum()[lambda s: s > 0])
 print("\n¿Jugadores duplicados (mismo nombre, equipo y edad)?", df.duplicated(["Name", "Team", "Age"]).sum())
 
 # %% [markdown]
+# ### 🕵️ Primer misterio: ¿por qué el Liverpool tiene 66 jugadores?
+
+# %%
+print("Jugadores con Team == 'Liverpool':", (df["Team"] == "Liverpool").sum())
+df[df["Team"] == "Liverpool"].groupby("League").agg(n=("Name", "size"), altura_mediana=("Height_cm", "median"))
+
+# %% [markdown]
+# Bajo el nombre "Liverpool" hay **tres equipos distintos**: el masculino (Premier League), el **femenino** (Barclays WSL)
+# y el **Liverpool de Montevideo** (Uruguay, Copa Libertadores). Si agrupamos solo por `Team`, los mezclamos.
+#
+# El dataset incluye **ligas femeninas**. ¿Cómo las encontramos sin leer los 56 nombres? Con estadística:
+# la **mediana de altura** por liga separa claramente dos grupos.
+
+# %%
+alt_liga = df.groupby("League")["Height_cm"].median().sort_values()
+ax = alt_liga.plot.barh(figsize=(9, 13), color=np.where(alt_liga < 174, NARANJA, AZUL))
+ax.axvline(174, color="#333333", ls="--")
+ax.set_title("Mediana de altura por liga: dos grupos muy separados"); ax.set_xlabel("cm")
+plt.tight_layout(); plt.show()
+
+# %%
+ligas_femeninas = alt_liga[alt_liga < 174].index.tolist()
+print("Ligas femeninas:", ligas_femeninas)
+df["sexo"] = np.where(df["League"].isin(ligas_femeninas), "Femenino", "Masculino")
+# Clave de equipo única: equipo + liga (separa los tres Liverpool)
+df["equipo"] = df["Team"] + " (" + df["League"] + ")"
+df.groupby("sexo")[["OVR", "Height_cm", "Weight_kg", "Age"]].agg(["size", "mean", "median"]).round(1).T
+
+# %% [markdown]
+# 🤔 **¿Por qué las jugadoras tienen un OVR medio 7 puntos mayor?** Mirad qué ligas hay de cada grupo: de hombres están también
+# la 2.ª, 3.ª y 4.ª división inglesa, la 3. Liga alemana…; de mujeres, solo las primeras divisiones. **Los grupos no se han
+# seleccionado igual**, así que comparar sus medias no compara lo mismo. Además, el juego calibra el `OVR` dentro de cada fútbol.
+#
+# Altura y peso sí son medidas físicas comparables, y eso afectará a los atípicos (apartado 7).
+
+# %% [markdown]
 # ### Tipos de variables
 # | Variable | Tipo |
 # |---|---|
@@ -212,8 +248,20 @@ plt.tight_layout(); plt.show()
 # 🎯 **Lección:** una distribución bimodal suele avisar de que estamos mezclando grupos distintos.
 # Y en ese caso la media (que cae en el "valle" entre las dos jorobas) **no representa a nadie**.
 #
-# ⚠️ **Ojo con los porteros:** en este juego las seis medias de un portero (`PAC`…`PHY`) pueden significar otra cosa
-# (estirada, paradas…). Mirad la tabla del apartado 9 y decidid si los incluiríais al calcular la media de `DEF`.
+# ### 🕵️ Segundo misterio: ¿los porteros tiran tan bien como los delanteros?
+
+# %%
+df.groupby("Position")[seis].mean().round(0).loc[["GK", "CB", "ST"]]
+
+# %% [markdown]
+# Un portero con `SHO` = 64 de media, casi como un delantero (66), no tiene sentido futbolístico. Lo que pasa es que en las cartas de portero
+# esas seis columnas guardan **otras medias** (estirada, blocaje, saque, reflejos, velocidad, colocación). Es la misma columna con
+# **otro significado** según la fila. Por eso, en los análisis de las seis medias **quitamos a los porteros**:
+
+# %%
+campo = df[df["Position"] != "GK"]
+print(f"DEF media con porteros: {df['DEF'].mean():.2f} | sin porteros: {campo['DEF'].mean():.2f}")
+print(f"SHO media con porteros: {df['SHO'].mean():.2f} | sin porteros: {campo['SHO'].mean():.2f}")
 
 # %% [markdown]
 # ## 7. Datos anómalos
@@ -238,8 +286,22 @@ for v in ["Age", "Height_cm", "Weight_kg"]:
     print(pd.concat([df.nsmallest(3, v), df.nlargest(3, v)])[["Name", v, "Position", "Team"]].to_string(index=False))
 
 # %% [markdown]
-# 🤔 **¿Error o crack?** Un atípico no es automáticamente un error. Un portero de 2 metros es raro pero real;
-# un jugador de 15 años con OVR 90 sería sospechoso. **Antes de borrar un dato, hay que entenderlo.**
+# 🤔 **¿Error o crack?** Un atípico no es automáticamente un error. Un portero de 2,06 m es raro pero real;
+# una jugadora de 1,49 m es atípica entre **todos** los jugadores… pero ¿lo es dentro de su liga?
+# **Un atípico lo es respecto a un grupo de referencia.** Repetimos la regla de Tukey separando por sexo:
+
+# %%
+filas = []
+for sexo, g in df.groupby("sexo"):
+    li, ls = limites_tukey(g["Height_cm"])
+    filas.append({"sexo": sexo, "valla_inf": li, "valla_sup": ls,
+                  "atipicos_dentro_del_grupo": ((g["Height_cm"] < li) | (g["Height_cm"] > ls)).sum()})
+li, ls = limites_tukey(df["Height_cm"])
+print(f"Todos juntos: vallas [{li:.1f}, {ls:.1f}] -> {((df['Height_cm'] < li) | (df['Height_cm'] > ls)).sum()} atípicos")
+pd.DataFrame(filas).set_index("sexo")
+
+# %% [markdown]
+# **Antes de borrar un dato, hay que entenderlo.**
 
 # %% [markdown]
 # ## 8. Tipificación (z-scores): ¿quién es el más excepcional?
@@ -247,10 +309,10 @@ for v in ["Age", "Height_cm", "Weight_kg"]:
 # Es "a cuántas desviaciones típicas de la media" está un jugador. Así comparamos atributos con medias y dispersiones distintas.
 
 # %%
-Z = (df[seis] - df[seis].mean()) / df[seis].std()
+Z = (campo[seis] - campo[seis].mean()) / campo[seis].std()   # sin porteros
 extremos = pd.DataFrame({
-    "jugador": [df.loc[Z[a].idxmax(), "Name"] for a in seis],
-    "valor": [df.loc[Z[a].idxmax(), a] for a in seis],
+    "jugador": [campo.loc[Z[a].idxmax(), "Name"] for a in seis],
+    "valor": [campo.loc[Z[a].idxmax(), a] for a in seis],
     "z_max": [Z[a].max() for a in seis],
 }, index=seis)
 extremos
@@ -300,10 +362,10 @@ plt.show()
 # ### Perfil de cada posición (medias de las seis medias)
 
 # %%
-perfil = df.groupby("Position")[seis].mean().loc[orden]
+perfil = campo.groupby("Position")[seis].mean().loc[[p for p in orden if p != "GK"]]
 plt.figure(figsize=(9, 7))
 sns.heatmap(perfil, annot=True, fmt=".0f", cmap="Blues", linewidths=2, linecolor="white")
-plt.title("Media de cada atributo por posición"); plt.ylabel(""); plt.show()
+plt.title("Media de cada atributo por posición (jugadores de campo)"); plt.ylabel(""); plt.show()
 
 # %% [markdown]
 # ### 9.2 Por liga: ¿la mejor… y la más igualada?
@@ -356,7 +418,7 @@ plt.tight_layout(); plt.show()
 # ### 9.4 Por equipo: los mejores… y los más desiguales
 
 # %%
-por_equipo = (df.groupby("Team")["OVR"]
+por_equipo = (df.groupby("equipo")["OVR"]
                 .agg(n="size", media="mean", mediana="median", desv="std", maximo="max", minimo="min",
                      estrellas=lambda s: (s >= 85).sum())
                 .query("n >= 18"))
@@ -438,6 +500,6 @@ pd.DataFrame({
 # 1. Repite la tabla de ligas usando la **mediana** para ordenar. ¿Cambia el top 5?
 # 2. ¿Qué equipo tiene más jugadores **atípicos por arriba** (según Tukey) en su plantilla?
 # 3. Construye el **"once ideal"**: el mejor jugador (mayor OVR) de cada posición con `groupby("Position")["OVR"].idxmax()`.
-# 4. Calcula la media de `DEF` por rol **con y sin porteros**. ¿Cuánto cambia la media global?
+# 4. ¿Qué equipo **femenino** tiene el OVR medio más alto? ¿Y la liga femenina más igualada?
 # 5. ¿Qué nacionalidad (con n ≥ 50) es la más **homogénea** en OVR? ¿Y la más desigual?
 # 6. Elige tú una pregunta y respóndela con un `groupby` y un gráfico. ¡La mejor se enseña en clase!
