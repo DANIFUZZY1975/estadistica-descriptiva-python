@@ -28,17 +28,29 @@ def cargar(nombre, **kwargs):
     return pd.read_csv(URL_DATOS + nombre, **kwargs)
 
 
-def moda(x):
-    """Moda 'honesta':
+def moda(x, bins="sturges"):
+    """Moda:
     - variable discreta (pocos valores distintos) -> valor más repetido;
-    - variable continua -> punto medio de la CLASE modal del histograma (Sturges),
-      porque en una continua casi ningún valor se repite y x.mode() no tiene sentido."""
+    - variable continua -> moda INTERPOLADA dentro de la clase modal del histograma:
+          Mo = L + d1 / (d1 + d2) * a
+      con L = extremo inferior de la clase modal, a = su amplitud,
+          d1 = n_i - n_(i-1)  (diferencia con la clase de la izquierda),
+          d2 = n_i - n_(i+1)  (diferencia con la clase de la derecha).
+      Es el punto donde se cortan las rectas que unen, en cruz, las esquinas superiores
+      de la barra modal con las de sus vecinas: si la vecina izquierda es más alta,
+      la moda se desplaza a la izquierda, y al revés. Siempre queda dentro de la clase modal."""
     x = pd.Series(x).dropna()
     if x.nunique() <= 30:
         return x.mode().iloc[0]
-    frec, bordes = np.histogram(x, bins="sturges")
+    frec, bordes = np.histogram(x, bins=bins)
     i = frec.argmax()
-    return (bordes[i] + bordes[i + 1]) / 2
+    n_izq = frec[i - 1] if i > 0 else 0
+    n_der = frec[i + 1] if i < len(frec) - 1 else 0
+    d1, d2 = frec[i] - n_izq, frec[i] - n_der
+    L, a = bordes[i], bordes[i + 1] - bordes[i]
+    if d1 + d2 == 0:          # meseta: las tres barras iguales -> punto medio
+        return L + a / 2
+    return L + d1 / (d1 + d2) * a
 
 
 def limites_tukey(x, k=1.5):
@@ -79,14 +91,14 @@ def resumen(x):
     })
 
 
-def histograma_con_centros(x, titulo="", bins="auto", ax=None, color=AZUL):
+def histograma_con_centros(x, titulo="", bins="sturges", ax=None, color=AZUL):
     """Histograma + KDE con media, mediana y moda marcadas."""
     x = pd.Series(x).dropna()
     ax = ax or plt.gca()
     sns.histplot(x, bins=bins, kde=True, color=color, alpha=0.35, ax=ax)
     for valor, etiqueta, estilo in [(x.mean(), "media", "-"),
                                     (x.median(), "mediana", "--"),
-                                    (moda(x), "moda", ":")]:
+                                    (moda(x, bins=bins), "moda", ":")]:
         ax.axvline(valor, color="#333333", ls=estilo, lw=2,
                    label=f"{etiqueta} = {valor:,.2f}")
     ax.set_title(titulo or x.name)

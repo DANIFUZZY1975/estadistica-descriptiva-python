@@ -90,14 +90,47 @@ x = df["felicidad"]
 print(f"Media              : {x.mean():.3f}")
 print(f"Mediana            : {x.median():.3f}")
 print(f"Moda (x.mode())    : {x.mode().tolist()[:5]} ...  ({x.mode().size} valores!)")
-print(f"Moda (clase modal) : {moda(x):.3f}")
+print(f"Moda (interpolada) : {moda(x):.3f}")
 print(f"Media recortada 5% : {stats.trim_mean(x, 0.05):.3f}")
 
 # %% [markdown]
 # 🤔 **¿Por qué `x.mode()` da dos valores raros?** En una variable continua casi ningún valor se repite: aquí solo
 # coinciden por casualidad dos parejas de países (Rusia y Hong Kong con 5.477; Argentina y Portugal con 5.929).
-# Eso no describe "el valor más habitual". Para continuas usamos la **clase modal**
-# (el intervalo del histograma con más observaciones).
+# Eso no describe "el valor más habitual".
+#
+# ### La moda de una variable continua
+# Para continuas agrupamos en intervalos (aquí con Sturges: $k \approx 1 + 3{,}322\,\log_{10} n$), buscamos la **clase modal**
+# (la de mayor frecuencia) y, dentro de ella, **interpolamos**:
+# $$ Mo = L_i + \frac{d_1}{d_1 + d_2}\, a_i, \qquad d_1 = n_i - n_{i-1}, \quad d_2 = n_i - n_{i+1}$$
+# Geométricamente es el punto donde se **cortan las rectas que unen en cruz** las esquinas de la barra modal con las de sus vecinas.
+# Si la barra de la izquierda es más alta que la de la derecha, la moda se desplaza hacia la izquierda (y al revés).
+
+# %%
+frec, bordes = np.histogram(x, bins="sturges")
+i = frec.argmax()
+L, a = bordes[i], bordes[i + 1] - bordes[i]
+n_izq, n_mod, n_der = frec[i - 1], frec[i], frec[i + 1]
+Mo = moda(x)
+print(f"Clase modal: [{L:.3f}, {L + a:.3f})  con n_i = {n_mod}  (izquierda: {n_izq}, derecha: {n_der})")
+print(f"d1 = {n_mod - n_izq},  d2 = {n_mod - n_der}  ->  Mo = {L:.3f} + {n_mod - n_izq}/{(n_mod - n_izq) + (n_mod - n_der)} · {a:.3f} = {Mo:.3f}")
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.bar(bordes[:-1], frec, width=np.diff(bordes), align="edge", color="#cde2fb", edgecolor="white")
+ax.bar(L, n_mod, width=a, align="edge", color=AZUL, alpha=0.6, edgecolor="white", label="clase modal")
+# Rectas en cruz dentro de la clase modal:
+#   (L, n_mod) -> (L+a, n_der): esquina sup. izquierda de la modal con la altura de la vecina derecha
+#   (L, n_izq) -> (L+a, n_mod): altura de la vecina izquierda con la esquina sup. derecha de la modal
+ax.plot([L, L + a], [n_mod, n_der], color=NARANJA, lw=2)
+ax.plot([L, L + a], [n_izq, n_mod], color=NARANJA, lw=2)
+ax.axvline(Mo, color="#333333", ls=":", lw=2, label=f"moda interpolada = {Mo:.3f}")
+ax.axvline(L + a / 2, color="#9aa0a6", ls="--", lw=1.5, label=f"punto medio de la clase = {L + a / 2:.3f}")
+ax.set_title("Moda de una variable continua: intersección de las rectas en cruz")
+ax.set_xlabel("felicidad"); ax.set_ylabel("número de países"); ax.legend(frameon=False, loc="upper left")
+plt.show()
+
+# %% [markdown]
+# 🤔 ¿Hacia qué lado se ha desplazado la moda respecto al punto medio de la clase? ¿Qué barra vecina "tira" más de ella?
+# Cambia `bins="sturges"` por `bins=6` o `bins=15`: **la moda de una continua depende de cómo agrupemos**.
 
 # %%
 histograma_con_centros(df["felicidad"], "Felicidad (Ladder score) de 149 países")
