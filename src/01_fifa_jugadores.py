@@ -42,15 +42,67 @@ print(df.isna().sum()[lambda s: s > 0])
 print("\n¿Jugadores duplicados (mismo nombre, equipo y edad)?", df.duplicated(["Name", "Team", "Age"]).sum())
 
 # %% [markdown]
-# ### 🕵️ Primer misterio: ¿por qué el Liverpool tiene 66 jugadores?
+# ### 🕵️ Primer análisis: ¿cuántos jugadores tiene cada equipo?
+# Antes de comparar equipos, conviene saber **cuántos datos tiene cada grupo**. Creamos una variable nueva,
+# `plantilla` = número de jugadores por equipo, y la describimos como cualquier otra variable cuantitativa.
+# (Ojo: ahora la unidad estadística ya no es el jugador, es el **equipo**.)
 
 # %%
-print("Jugadores con Team == 'Liverpool':", (df["Team"] == "Liverpool").sum())
+plantilla = df["Team"].value_counts().rename("plantilla")
+print("Número de equipos:", plantilla.size)
+resumen(plantilla).round(2)
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(15, 4), gridspec_kw={"width_ratios": [3, 1]})
+sns.histplot(plantilla, bins=range(0, 72, 2), color=AZUL, ax=axes[0])
+axes[0].axvline(plantilla.median(), color="#333333", ls="--", label=f"mediana = {plantilla.median():.0f}")
+axes[0].set_title("Jugadores por equipo (agrupando por Team)"); axes[0].set_xlabel("jugadores en la plantilla")
+axes[0].legend(frameon=False)
+sns.boxplot(y=plantilla, color="#cde2fb", width=0.4, ax=axes[1]); axes[1].set_title("Diagrama de caja")
+plt.tight_layout(); plt.show()
+
+# %% [markdown]
+# 🤔 La mayoría de equipos tiene entre 22 y 28 jugadores (lo normal en una plantilla)… pero hay una **segunda joroba** entre 45 y 68,
+# y la caja marca muchos **atípicos**. ¿Quiénes son?
+
+# %%
+li, ls = limites_tukey(plantilla)
+grandes = plantilla[plantilla > ls]
+print(f"Vallas de Tukey: [{li:.1f}, {ls:.1f}] -> {len(grandes)} equipos atípicos por arriba")
+grandes.head(15).to_frame()
+
+# %% [markdown]
+# Everton 68, Liverpool 66, Chelsea 65… ¿Tienen el triple de jugadores que el resto? Abramos uno:
+
+# %%
 df[df["Team"] == "Liverpool"].groupby("League").agg(n=("Name", "size"), altura_mediana=("Height_cm", "median"))
 
 # %% [markdown]
 # Bajo el nombre "Liverpool" hay **tres equipos distintos**: el masculino (Premier League), el **femenino** (Barclays WSL)
-# y el **Liverpool de Montevideo** (Uruguay, Copa Libertadores). Si agrupamos solo por `Team`, los mezclamos.
+# y el **Liverpool de Montevideo** (Uruguay, Copa Libertadores). Los atípicos no eran equipos enormes: eran **varios equipos con el mismo nombre**.
+# El análisis descriptivo de una variable aparentemente aburrida nos ha descubierto un problema en cómo agrupábamos.
+#
+# **Solución:** identificar cada equipo por *nombre + liga* y repetir la descripción.
+
+# %%
+df["equipo"] = df["Team"] + " (" + df["League"] + ")"
+plantilla2 = df["equipo"].value_counts().rename("plantilla")
+pd.DataFrame({"por Team": resumen(plantilla), "por equipo + liga": resumen(plantilla2)}).round(2)
+
+# %%
+fig, ax = plt.subplots(figsize=(12, 4))
+sns.histplot(plantilla, bins=range(0, 72, 2), color="#9aa0a6", alpha=0.5, label="por Team", ax=ax)
+sns.histplot(plantilla2, bins=range(0, 72, 2), color=AZUL, alpha=0.6, label="por equipo + liga", ax=ax)
+ax.set_title("Jugadores por equipo: antes y después de separar homónimos"); ax.set_xlabel("jugadores")
+ax.legend(frameon=False); plt.show()
+
+li2, ls2 = limites_tukey(plantilla2)
+print(f"Atípicos ahora: {((plantilla2 < li2) | (plantilla2 > ls2)).sum()} (antes: {((plantilla < li) | (plantilla > ls)).sum()})")
+plantilla2.head(8).to_frame()
+
+# %% [markdown]
+# 🤔 La segunda joroba ha desaparecido y la desviación típica ha bajado mucho. Pero **Racing Club** sigue con 55 jugadores en la
+# Sudamericana… ¿Cuántos "Racing Club" conoces en Sudamérica? Y los equipos coreanos (K League) tienen 38: ¿error o plantillas más largas?
 #
 # El dataset incluye **ligas femeninas**. ¿Cómo las encontramos sin leer los 56 nombres? Con estadística:
 # la **mediana de altura** por liga separa claramente dos grupos.
@@ -66,8 +118,6 @@ plt.tight_layout(); plt.show()
 ligas_femeninas = alt_liga[alt_liga < 174].index.tolist()
 print("Ligas femeninas:", ligas_femeninas)
 df["sexo"] = np.where(df["League"].isin(ligas_femeninas), "Femenino", "Masculino")
-# Clave de equipo única: equipo + liga (separa los tres Liverpool)
-df["equipo"] = df["Team"] + " (" + df["League"] + ")"
 df.groupby("sexo")[["OVR", "Height_cm", "Weight_kg", "Age"]].agg(["size", "mean", "median"]).round(1).T
 
 # %% [markdown]

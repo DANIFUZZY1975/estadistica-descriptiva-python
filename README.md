@@ -8,7 +8,7 @@ Se abren directamente en Google Colab: no hace falta instalar nada ni subir fich
 
 | Notebook | Datos | Preguntas | Abrir |
 |---|---|---|---|
-| **01 · Futbolistas EA Sports FC** | 17.737 jugadores y jugadoras | ¿Por qué el Liverpool tiene 66 jugadores? ¿Qué liga es mejor y cuál más igualada? ¿A qué edad se alcanza el pico? ¿Por qué `DEF` tiene dos jorobas? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/01_fifa_jugadores.ipynb) |
+| **01 · Futbolistas EA Sports FC** | 17.737 jugadores y jugadoras | ¿Cuántos jugadores tiene cada equipo (y por qué el Liverpool tiene 66)? ¿Qué liga es mejor y cuál más igualada? ¿A qué edad se alcanza el pico? ¿Por qué `DEF` tiene dos jorobas? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/01_fifa_jugadores.ipynb) |
 | **02 · Felicidad mundial** | 149 países (World Happiness Report 2021) | ¿Da el dinero la felicidad? ¿Qué región es más desigual? ¿Dónde está España? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/02_felicidad_mundial.ipynb) |
 | **03 · Géneros musicales** | 50.000 canciones de Spotify | ¿Qué género es más bailable? ¿Rap y Hip-Hop son lo mismo? ¿Canciones de 80 minutos? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/03_generos_musicales.ipynb) |
 
