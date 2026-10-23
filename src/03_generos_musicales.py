@@ -189,7 +189,7 @@ for v in ["duracion_min", "speechiness", "liveness", "loudness", "tempo"]:
     s = df[v].dropna()
     li, ls = limites_tukey(s)
     z = (s - s.mean()) / s.std()
-    comparacion.append({"variable": v, "Tukey_1.5RIC": ((s < li) | (s > ls)).sum(), "|z|>3": (z.abs() > 3).sum()})
+    comparacion.append({"variable": v, "Tukey_1.5IQR": ((s < li) | (s > ls)).sum(), "|z|>3": (z.abs() > 3).sum()})
 pd.DataFrame(comparacion).set_index("variable")
 
 # %% [markdown]

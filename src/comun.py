@@ -54,10 +54,10 @@ def moda(x, bins="sturges"):
 
 
 def limites_tukey(x, k=1.5):
-    """Vallas de Tukey: [Q1 - k·RIC , Q3 + k·RIC] (las del diagrama de caja)."""
+    """Vallas de Tukey: [Q1 - k·IQR , Q3 + k·IQR] (las del diagrama de caja)."""
     q1, q3 = np.nanquantile(x, [0.25, 0.75])
-    ric = q3 - q1
-    return q1 - k * ric, q3 + k * ric
+    iqr = q3 - q1
+    return q1 - k * iqr, q3 + k * iqr
 
 
 def resumen(x):
@@ -77,7 +77,7 @@ def resumen(x):
         "min": x.min(), "Q1": q1, "Q3": q3, "max": x.max(),
         # --- medidas de dispersión
         "rango": x.max() - x.min(),
-        "RIC": q3 - q1,
+        "IQR": q3 - q1,
         "varianza": x.var(),          # cuasivarianza (divide entre n-1)
         "desv_tipica": x.std(),       # cuasidesviación típica (n-1)
         "CV_%": 100 * x.std() / abs(x.mean()) if x.mean() != 0 else np.nan,

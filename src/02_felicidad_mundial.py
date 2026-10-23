@@ -169,7 +169,7 @@ ficha_pais("Spain")
 # %%
 x = df["felicidad"]
 print(f"Rango                 : {x.max() - x.min():.3f}  ({df.loc[x.idxmin(), 'pais']} → {df.loc[x.idxmax(), 'pais']})")
-print(f"Rango intercuartílico : {x.quantile(.75) - x.quantile(.25):.3f}")
+print(f"IQR (rango intercuart.): {x.quantile(.75) - x.quantile(.25):.3f}")
 print(f"Varianza  (n-1)       : {x.var():.3f}     | numpy por defecto (n): {np.var(x):.3f}")
 print(f"Desv. típica (n-1)    : {x.std():.3f}     | numpy por defecto (n): {np.std(x):.3f}")
 print(f"Coef. de variación    : {100 * x.std() / x.mean():.1f} %")
@@ -218,7 +218,7 @@ tabla.style.format("{:,.2f}").background_gradient(subset=["asimetria_Fisher"], c
 # %% [markdown]
 # ## 7. Datos anómalos (atípicos)
 # **Regla de Tukey** (la del diagrama de caja): es atípico todo lo que esté fuera de
-# $[Q_1 - 1.5\,RIC,\; Q_3 + 1.5\,RIC]$.
+# $[Q_1 - 1.5\,IQR,\; Q_3 + 1.5\,IQR]$.
 
 # %%
 fig, axes = plt.subplots(1, 4, figsize=(15, 4))
@@ -267,7 +267,7 @@ ax.legend(frameon=False); plt.show()
 por_region = (df.groupby("region")["felicidad"]
                 .agg(n="size", media="mean", mediana="median", desv="std",
                      minimo="min", maximo="max",
-                     RIC=lambda s: s.quantile(.75) - s.quantile(.25))
+                     IQR=lambda s: s.quantile(.75) - s.quantile(.25))
                 .assign(CV=lambda t: 100 * t["desv"] / t["media"])
                 .sort_values("mediana", ascending=False))
 por_region.style.format("{:.2f}").background_gradient(subset=["mediana"], cmap="Blues").background_gradient(subset=["CV"], cmap="Oranges")
@@ -283,7 +283,7 @@ plt.show()
 
 # %% [markdown]
 # 🤔 **Preguntas:**
-# 1. ¿Qué región tiene la **mayor dispersión**? ¿Y la menor? (mira `RIC` y `CV`)
+# 1. ¿Qué región tiene la **mayor dispersión**? ¿Y la menor? (mira `IQR` y `CV`)
 # 2. "North America and ANZ" solo tiene **4 países**. ¿Te fiarías de su media para compararla con África (36 países)?
 # 3. ¿En qué región la media y la mediana se separan más? ¿Por qué?
 

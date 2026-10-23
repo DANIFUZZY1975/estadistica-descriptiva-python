@@ -227,7 +227,7 @@ plt.title("Densidad estimada de OVR"); plt.ylabel("Densidad"); plt.show()
 # %%
 x = df["OVR"]
 print(f"Rango        : {x.max() - x.min()}   ({x.min()} a {x.max()})")
-print(f"RIC          : {x.quantile(.75) - x.quantile(.25)}")
+print(f"IQR (rango intercuartílico): {x.quantile(.75) - x.quantile(.25)}")
 print(f"Varianza     : pandas (n-1) = {x.var():.3f} | numpy (n) = {np.var(x):.3f}")
 print(f"Desv. típica : pandas (n-1) = {x.std():.3f} | numpy (n) = {np.std(x):.3f}")
 print(f"CV           : {100 * x.std() / x.mean():.1f} %")
@@ -425,7 +425,7 @@ plt.title("Media de cada atributo por posición (jugadores de campo)"); plt.ylab
 # %%
 por_liga = (df.groupby("League")["OVR"]
               .agg(n="size", media="mean", mediana="median", desv="std",
-                   RIC=lambda s: s.quantile(.75) - s.quantile(.25),
+                   IQR=lambda s: s.quantile(.75) - s.quantile(.25),
                    top=lambda s: (s >= 85).sum())
               .assign(CV=lambda t: 100 * t["desv"] / t["media"])
               .query("n >= 100")

@@ -19,7 +19,7 @@ Se abren directamente en Google Colab: no hace falta instalar nada ni subir fich
 | Tipos de variables, tablas de frecuencias (absolutas, relativas, acumuladas) | ✅ | ✅ | ✅ |
 | Media, mediana, moda (y por qué `mode()` falla en continuas), media recortada | ✅ | ✅ | ✅ |
 | Cuartiles, deciles, percentiles, posición relativa | ✅ | ✅ | ✅ |
-| Rango, RIC, varianza (n vs n−1), desviación típica, CV, MAD | ✅ | ✅ | ✅ |
+| Rango, IQR (rango intercuartílico), varianza (n vs n−1), desviación típica, CV, MAD | ✅ | ✅ | ✅ |
 | Asimetría (Fisher y Pearson), curtosis, bimodalidad | ✅ | ✅ | ✅ |
 | Atípicos: regla de Tukey, z-scores, "¿error o crack?" | ✅ | ✅ | ✅ |
 | Tipificación y comparación entre variables | ✅ | ✅ | |
