@@ -211,7 +211,9 @@ plt.tight_layout(); plt.show()
 
 # %% [markdown]
 # 🤔 Con 5 clases no se ve nada; con 80 aparecen "huecos" porque OVR solo toma valores enteros. Reglas como
-# **Sturges** ($k \approx 1 + \log_2 n$) dan un punto de partida: aquí $1 + \log_2(17000) \approx 15$.
+# **Sturges** dan un punto de partida:
+# $$k \approx 1 + 3{,}322\,\log_{10} n \;=\; 1 + \log_2 n$$
+# (son la misma fórmula: $\log_2 n = \log_{10} n / \log_{10} 2 \approx 3{,}322\,\log_{10} n$). Aquí $1 + 3{,}322\,\log_{10}(17737) \approx 15$ clases.
 #
 # La **densidad estimada (KDE)** es la versión "suavizada" del histograma:
 
