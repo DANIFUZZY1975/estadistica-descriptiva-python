@@ -16,6 +16,12 @@
 #@@COMUN@@
 
 # %% [markdown]
+# ---
+# # 🕐 Sesión 1 de 1 · Por qué hay que dibujar los datos
+# **Objetivos:** robustez de la media y la mediana, límites de los resúmenes numéricos y del R², paradoja de Simpson.  
+# **Apartados:** 1 a 5 · **Duración orientativa:** 2 horas
+
+# %% [markdown]
 # ## 1. Bill Gates entra en un bar
 # En un bar hay 10 personas con sueldos normales (en miles de € al año). Entra Bill Gates.
 
@@ -204,10 +210,13 @@ for s, g in berkeley.groupby("sexo"):
 # con la felicidad (media de países ≠ media de personas) y con los futbolistas (el exponente peso–altura con hombres y mujeres juntos).
 
 # %% [markdown]
-# ## 🚀 Retos
+# ### 🚀 Retos de la sesión 1
 # 1. En el bar, ¿cuántos Bill Gates hacen falta para que la **mediana** cambie de forma apreciable? ¿Y el IQR?
-# 2. Ajusta los modelos lineal, potencial y exponencial (`regresiones(x, y)`) al conjunto II de Anscombe. ¿Alguno sirve?
-#    Prueba a ajustar una parábola con `np.polyfit(x, y, 2)`.
+# 2. Ajusta los modelos lineal, potencial y exponencial (`regresiones(x, y)`) al conjunto II de Anscombe. ¿Alguno sirve? Prueba a ajustar una parábola con `np.polyfit(x, y, 2)`.
 # 3. En el conjunto III, quita el atípico y recalcula la recta. ¿Cuánto cambian la pendiente y el $R^2$?
 # 4. Calcula la asimetría y la curtosis de los 13 conjuntos del Datasaurus (para `x` y para `y`). ¿Se distinguen ahora?
 # 5. Inventa tu propio "bar": una muestra de 20 números donde la media sea 50, pero ningún dato esté entre 40 y 60.
+#
+# ---
+# 🏁 **Fin del notebook.**
+

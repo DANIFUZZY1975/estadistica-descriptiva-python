@@ -36,7 +36,7 @@ Se abren directamente en Google Colab: no hace falta instalar nada ni subir fich
 | Por qué hay que dibujar los datos (Anscombe, Datasaurus, mismo boxplot) | | | | ✅ |
 | Paradoja de Simpson y medias ponderadas | | | | ✅ |
 
-Cada notebook termina con una sección de **🚀 Retos** para el alumnado.
+Los notebooks 01–03 están pensados para **tres sesiones de 2 horas** cada uno (el 04, para una), con **🚀 retos** al final de cada sesión.
 
 ## Estructura
 

@@ -15,10 +15,21 @@
 # - ¿Por qué algunos histogramas tienen **dos jorobas**?
 #
 # > 💡 Ejecuta las celdas en orden. Donde veas **🤔**, para y piensa antes de seguir.
+#
+# **Plan de trabajo (3 sesiones de 2 h):**
+# - 🕐 Sesión 1 · Conocer los datos y describir una variable (apartados 1–6)
+# - 🕐 Sesión 2 · Atípicos, tipificación y comparación de grupos (7–9)
+# - 🕐 Sesión 3 · Dos variables: correlación y regresión (10–12)
 
 # %%
 # (el bloque de configuración común se inserta aquí)
 #@@COMUN@@
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 1 de 3 · Conocer los datos y describir una variable
+# **Objetivos:** limpiar el dataset, descubrir problemas de agrupación, tablas de frecuencias, medidas de posición, dispersión y forma.  
+# **Apartados:** 1 a 6 · **Duración orientativa:** 2 horas
 
 # %% [markdown]
 # ## 1. Carga y limpieza
@@ -316,6 +327,23 @@ print(f"DEF media con porteros: {df['DEF'].mean():.2f} | sin porteros: {campo['D
 print(f"SHO media con porteros: {df['SHO'].mean():.2f} | sin porteros: {campo['SHO'].mean():.2f}")
 
 # %% [markdown]
+# ### 🚀 Retos de la sesión 1
+# 1. Haz la tabla de frecuencias de `Weak foot` con frecuencias acumuladas. ¿Cuál es su mediana?
+# 2. Compara media, mediana y moda de `Age` con `histograma_con_centros(df['Age'])`. ¿Qué asimetría tiene?
+# 3. ¿Qué atributo (de la lista `atributos`) tiene el **mayor** coeficiente de variación? ¿Y el menor? ¿Por qué crees que es así?
+# 4. Busca otro atributo con dos jorobas, además de `DEF` y `Sliding Tackle`, y explica qué grupos se mezclan.
+#
+# ---
+# ✅ **Fin de la sesión 1.**
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 2 de 3 · Atípicos, tipificación y comparación de grupos
+# **Objetivos:** detectar atípicos (Tukey y z), comparar observaciones con z-scores y percentiles, comparar grupos con `groupby`.  
+# **Apartados:** 7 a 9 · **Duración orientativa:** 2 horas
+# > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
+
+# %% [markdown]
 # ## 7. Datos anómalos
 
 # %%
@@ -517,6 +545,25 @@ ax.set_title("% de zurdos en cada posición"); ax.set_xlabel("%"); ax.legend(fra
 plt.show()
 
 # %% [markdown]
+# ### 🚀 Retos de la sesión 2
+# 1. Repite la tabla de ligas usando la **mediana** para ordenar. ¿Cambia el top 5?
+# 2. ¿Qué equipo tiene más jugadores **atípicos por arriba** (según Tukey) en su plantilla?
+# 3. Construye el **"once ideal"**: el mejor jugador (mayor OVR) de cada posición con `groupby("Position")["OVR"].idxmax()`.
+# 4. ¿Qué equipo **femenino** tiene el OVR medio más alto? ¿Y la liga femenina más igualada?
+# 5. ¿Qué nacionalidad (con n ≥ 50) es la más **homogénea** en OVR? ¿Y la más desigual?
+# 6. Elige tú una pregunta y respóndela con un `groupby` y un gráfico. ¡La mejor se enseña en clase!
+#
+# ---
+# ✅ **Fin de la sesión 2.**
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 3 de 3 · Dos variables: correlación y regresión
+# **Objetivos:** covarianza y correlación, recta de regresión, modelos potencial y exponencial, residuos y predicción.  
+# **Apartados:** 10 a 12 · **Duración orientativa:** 2 horas
+# > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
+
+# %% [markdown]
 # ## 10. Dos variables cuantitativas: covarianza y correlación
 
 # %%
@@ -659,12 +706,12 @@ pd.DataFrame({
 }, index=pd.Index([1, 2, 3], name="k (desviaciones)"))
 
 # %% [markdown]
-# ## 🚀 Retos
-# 1. Repite la tabla de ligas usando la **mediana** para ordenar. ¿Cambia el top 5?
-# 2. ¿Qué equipo tiene más jugadores **atípicos por arriba** (según Tukey) en su plantilla?
-# 3. Construye el **"once ideal"**: el mejor jugador (mayor OVR) de cada posición con `groupby("Position")["OVR"].idxmax()`.
-# 4. ¿Qué equipo **femenino** tiene el OVR medio más alto? ¿Y la liga femenina más igualada?
-# 5. ¿Qué nacionalidad (con n ≥ 50) es la más **homogénea** en OVR? ¿Y la más desigual?
-# 6. Repite la regresión potencial peso ~ altura **solo con hombres** y **solo con mujeres**. ¿Sale el mismo exponente que con todos juntos? ¿Por qué?
-# 7. Ajusta los tres modelos para `Sprint Speed` frente a `Acceleration`. ¿Cuál gana?
-# 8. Elige tú una pregunta y respóndela con un `groupby` y un gráfico. ¡La mejor se enseña en clase!
+# ### 🚀 Retos de la sesión 3
+# 1. Repite la regresión potencial peso ~ altura **solo con hombres** y **solo con mujeres**. ¿Sale el mismo exponente que con todos juntos? ¿Por qué?
+# 2. Ajusta los tres modelos para `Sprint Speed` frente a `Acceleration`. ¿Cuál gana?
+# 3. ¿Qué pareja de las seis medias (`PAC`…`PHY`) tiene la correlación más alta en los jugadores de campo? Calcula su recta de regresión e interpreta la pendiente.
+# 4. Calcula las dos rectas de regresión de `OVR` y `Reactions`. ¿Cuánto vale el producto de sus pendientes? ¿Por qué?
+#
+# ---
+# 🏁 **Fin del notebook.**
+

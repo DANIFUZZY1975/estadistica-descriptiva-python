@@ -14,10 +14,21 @@
 # - ¿Por qué la media de popularidad de la clásica está **por debajo** de su mediana?
 # - ¿Existen canciones de **80 minutos**? (spoiler: sí, pero no son canciones)
 # - ¿Rap y Hip-Hop son, estadísticamente, el mismo género?
+#
+# **Plan de trabajo (3 sesiones de 2 h):**
+# - 🕐 Sesión 1 · Datos sucios y una variable (apartados 1–4)
+# - 🕐 Sesión 2 · Formas, atípicos y comparación de géneros (5–7)
+# - 🕐 Sesión 3 · Dos variables: correlación y regresión (8–10)
 
 # %%
 # (el bloque de configuración común se inserta aquí)
 #@@COMUN@@
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 1 de 3 · Datos sucios y una variable
+# **Objetivos:** detectar y limpiar faltantes disfrazados, variables cualitativas y tablas de contingencia, medidas de posición.  
+# **Apartados:** 1 a 4 · **Duración orientativa:** 2 horas
 
 # %% [markdown]
 # ## 1. Primer vistazo (y primeros sustos)
@@ -128,6 +139,22 @@ plt.xlabel("popularity (0-100)"); plt.show()
 
 # %% [markdown]
 # 🤔 ¿Ves el **pico en 0**? ¿Son canciones que nadie escucha… o un dato faltante disfrazado? Ahora lo investigamos por género.
+
+# %% [markdown]
+# ### 🚀 Retos de la sesión 1
+# 1. ¿Cuántas canciones tienen `tempo` faltante en cada género? ¿Están repartidos por igual? (`df.groupby('music_genre')['tempo'].apply(lambda s: s.isna().sum())`)
+# 2. Calcula la media, la mediana y la media recortada de `duracion_min`. ¿Cuál se parece más a la duración de una canción "normal"?
+# 3. Calcula la tonalidad **moda** de cada género (`groupby(...)["key"].agg(lambda s: s.mode()[0])`).
+#
+# ---
+# ✅ **Fin de la sesión 1.**
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 2 de 3 · Formas, atípicos y comparación de géneros
+# **Objetivos:** asimetría, curtosis y bimodalidad, atípicos (Tukey frente a z), comparación de géneros con `groupby`.  
+# **Apartados:** 5 a 7 · **Duración orientativa:** 2 horas
+# > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
 
 # %% [markdown]
 # ## 5. Dispersión y forma: todas las variables de un vistazo
@@ -251,6 +278,23 @@ disp.columns = [f"CV_{c}_%" for c in disp.columns]
 disp.sort_values("CV_energy_%").style.background_gradient(cmap="Oranges")
 
 # %% [markdown]
+# ### 🚀 Retos de la sesión 2
+# 1. ¿Qué **artista** con al menos 20 canciones tiene la mayor popularidad mediana? (`groupby("artist_name")` + `filter` o `agg` con `size`).
+# 2. Repite la tabla de popularidad por género **quitando las popularidades 0**. ¿Cambia el ranking? ¿Cambia la media de la clásica?
+# 3. Crea una variable `tempo_cat` con `pd.cut` (lento < 90, medio 90-130, rápido > 130) y cruza con el género. ¿Qué género es el más rápido?
+# 4. Busca la canción más "anómala" del dataset: la que tenga la mayor suma de |z| en todos los rasgos.
+#
+# ---
+# ✅ **Fin de la sesión 2.**
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 3 de 3 · Dos variables: correlación y regresión
+# **Objetivos:** correlación, regresión lineal y exponencial, dominio de los modelos, la trampa del R² en logaritmos, duplicados.  
+# **Apartados:** 8 a 10 · **Duración orientativa:** 2 horas
+# > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
+
+# %% [markdown]
 # ## 8. Dos variables cuantitativas: energía, volumen y acústica
 
 # %%
@@ -357,10 +401,11 @@ pd.crosstab(dup["music_genre"], "repeticiones").sort_values("repeticiones", asce
 # 🤔 Si una canción está a la vez en *Rap* y en *Hip-Hop*, ¿qué hace eso con las comparaciones del apartado 7?
 
 # %% [markdown]
-# ## 🚀 Retos
-# 1. ¿Qué **artista** con al menos 20 canciones tiene la mayor popularidad mediana? (`groupby("artist_name")` + `filter` o `agg` con `size`).
-# 2. Repite la tabla de popularidad por género **quitando las popularidades 0**. ¿Cambia el ranking? ¿Cambia la media de la clásica?
-# 3. Crea una variable `tempo_cat` con `pd.cut` (lento < 90, medio 90-130, rápido > 130) y cruza con el género. ¿Qué género es el más rápido?
-# 4. Calcula la tonalidad **moda** de cada género (`groupby(...)["key"].agg(lambda s: s.mode()[0])`).
-# 5. Busca la canción más "anómala" del dataset: la que tenga la mayor suma de |z| en todos los rasgos.
-# 6. Ajusta los tres modelos para `acousticness` frente a `energy`. ¿Por qué falla el potencial? (pista: busca valores exactamente 0)
+# ### 🚀 Retos de la sesión 3
+# 1. Ajusta los tres modelos para `acousticness` frente a `energy`. ¿Por qué falla el potencial? (pista: busca valores exactamente 0)
+# 2. Repite la regresión `energy` ~ `loudness` **solo para Classical** y dibuja los dos modelos con `dibujar_regresiones`. ¿Por qué ahí gana el exponencial?
+# 3. ¿Qué pareja de rasgos de audio tiene la correlación negativa más fuerte? Ajusta su recta e interpreta la pendiente.
+#
+# ---
+# 🏁 **Fin del notebook.**
+

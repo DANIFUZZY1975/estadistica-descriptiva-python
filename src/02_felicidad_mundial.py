@@ -13,10 +13,21 @@
 # - ¿Dónde está **España**?
 #
 # > 💡 Ejecuta las celdas en orden (`Shift + Enter`). Donde veas **🤔**, para y piensa antes de seguir.
+#
+# **Plan de trabajo (3 sesiones de 2 h):**
+# - 🕐 Sesión 1 · Describir una variable (apartados 1–5)
+# - 🕐 Sesión 2 · Atípicos y comparación de grupos (6–8)
+# - 🕐 Sesión 3 · Dos variables: correlación y regresión (9–11)
 
 # %%
 # (el bloque de configuración común se inserta aquí)
 #@@COMUN@@
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 1 de 3 · Describir una variable
+# **Objetivos:** tipos de variables, frecuencias, media/mediana/moda (incluida la moda interpolada), posición relativa, dispersión y forma.  
+# **Apartados:** 1 a 5 · **Duración orientativa:** 2 horas
 
 # %% [markdown]
 # ## 1. Cargamos y miramos los datos
@@ -209,6 +220,22 @@ plt.tight_layout(); plt.show()
 # al tomar logaritmos la distribución se vuelve casi simétrica. Por eso los economistas trabajan con `log_PIB`.
 
 # %% [markdown]
+# ### 🚀 Retos de la sesión 1
+# 1. Usa `ficha_pais()` con tres países que elijas. ¿En qué variable destaca cada uno (mayor |z|)?
+# 2. Calcula la moda interpolada de `felicidad` con `moda(df['felicidad'], bins=6)`, con Sturges y con `bins=15`. ¿Cuánto cambia?
+# 3. ¿Qué variable es más asimétrica: `generosidad` o `corrupcion`? Dibújalas con `histograma_con_centros` y comprueba si media y mediana se separan como esperas.
+#
+# ---
+# ✅ **Fin de la sesión 1.**
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 2 de 3 · Atípicos y comparación de grupos
+# **Objetivos:** tabla resumen completa, atípicos (Tukey y residuos), comparación de regiones con `groupby`, perfiles tipificados.  
+# **Apartados:** 6 a 8 · **Duración orientativa:** 2 horas
+# > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
+
+# %% [markdown]
 # ## 6. Tabla resumen de TODAS las variables cuantitativas
 
 # %%
@@ -304,6 +331,23 @@ plt.ylabel(""); plt.show()
 # ### ⚠️ La media de los países NO es la media del mundo
 # Hemos tratado igual a India (1.400 millones) que a Islandia (370.000). La media de esta tabla es la del
 # "país típico", **no la de la persona típica**. Para eso necesitaríamos una **media ponderada** por población.
+
+# %% [markdown]
+# ### 🚀 Retos de la sesión 2
+# 1. Calcula la tabla de `resumen()` **por región** para `esperanza_vida`: `df.groupby("region")["esperanza_vida"].apply(resumen).unstack()`.
+# 2. Crea una variable cualitativa ordinal `nivel_felicidad` con `pd.cut` (baja / media / alta) y haz una tabla de contingencia con `region` (`pd.crosstab(..., normalize="index")`).
+# 3. ¿Qué país europeo es el más "anómalo" según su residuo? ¿Y el latinoamericano?
+# 4. Repite el análisis de atípicos con z-scores ( |z| > 2.5 ). ¿Salen los mismos países que con Tukey?
+#
+# ---
+# ✅ **Fin de la sesión 2.**
+
+# %% [markdown]
+# ---
+# # 🕐 Sesión 3 de 3 · Dos variables: correlación y regresión
+# **Objetivos:** covarianza y correlación, regresión lineal, potencial y exponencial, elasticidad, residuos, regla empírica y Chebyshev.  
+# **Apartados:** 9 a 11 · **Duración orientativa:** 2 horas
+# > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
 
 # %% [markdown]
 # ## 9. Dos variables a la vez: covarianza y correlación
@@ -430,9 +474,11 @@ print("Felicidad:"); print(regla_empirica(df["felicidad"]))
 print("\nPIB per cápita (muy asimétrico):"); print(regla_empirica(df["PIB_pc"]))
 
 # %% [markdown]
-# ## 🚀 Retos
-# 1. Calcula la tabla de `resumen()` **por región** para `esperanza_vida`: `df.groupby("region")["esperanza_vida"].apply(resumen).unstack()`.
-# 2. Crea una variable cualitativa ordinal `nivel_felicidad` con `pd.cut` (baja / media / alta) y haz una tabla de contingencia con `region` (`pd.crosstab(..., normalize="index")`).
-# 3. ¿Qué país europeo es el más "anómalo" según su residuo? ¿Y el latinoamericano?
-# 4. Repite el análisis de atípicos con z-scores ( |z| > 2.5 ). ¿Salen los mismos países que con Tukey?
-# 5. Ajusta los tres modelos para `felicidad` frente a `apoyo_social`. ¿Cuál gana? ¿Tiene sentido el exponente?
+# ### 🚀 Retos de la sesión 3
+# 1. Ajusta los tres modelos para `felicidad` frente a `apoyo_social`. ¿Cuál gana? ¿Tiene sentido el exponente?
+# 2. Repite la regresión esperanza de vida ~ PIB **solo para África subsahariana** y **solo para Europa occidental**. ¿Sigue ganando el potencial? ¿Por qué?
+# 3. ¿Qué país tiene la esperanza de vida más alta **respecto a lo que predice su PIB** dentro de Europa?
+#
+# ---
+# 🏁 **Fin del notebook.**
+
