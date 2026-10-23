@@ -109,17 +109,54 @@ plt.show()
 print("Moda de key:", df["key"].mode()[0], " | moda de mode:", df["mode"].mode()[0])
 
 # %% [markdown]
-# ### Tabla de contingencia: ¿qué géneros usan más el modo **menor** (sonido "triste")?
+# ### Tabla de contingencia: ¿qué géneros usan más el modo **menor**?
+# En teoría musical se suele decir que el modo **mayor** suena "alegre" y el **menor**, "triste". Veamos qué géneros usan más cada uno.
 
 # %%
 tabla_modo = pd.crosstab(df["music_genre"], df["mode"], normalize="index").mul(100).sort_values("Minor")
-ax = tabla_modo.plot.barh(stacked=True, color=[AZUL, NARANJA], figsize=(9, 5), width=0.75, edgecolor="white")
-ax.set_title("% de canciones en modo mayor / menor por género"); ax.set_xlabel("%"); ax.set_ylabel("")
-ax.legend(title="", frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.02))
-ax.set_title("% de canciones en modo mayor / menor por género", pad=28)
+fig, ax = plt.subplots(figsize=(9, 5.5))
+tabla_modo.plot.barh(stacked=True, color=[AZUL, NARANJA], width=0.75, edgecolor="white", ax=ax)
+ax.set_title("% de canciones en modo mayor / menor por género")
+ax.set_xlabel("%"); ax.set_ylabel("")
+ax.legend(title="", frameon=False, ncol=2, loc="upper center", bbox_to_anchor=(0.5, -0.12))
 for i, v in enumerate(tabla_modo["Minor"]):
     ax.text(100 - v + 1, i, f"{v:.0f}%", va="center", color="white", fontweight="bold")
+plt.tight_layout(); plt.show()
+
+# %% [markdown]
+# 🤔 **¿No es raro?** El **country** tiene fama de música triste (desamores, despedidas…) y resulta ser el género con **menos**
+# canciones en modo menor (13 %). ¿Está mal el dato, o está mal la idea de que "menor = triste"?
+#
+# Spotify tiene otra variable pensada justo para eso: **`valence`** (de 0 a 1, cuánto de "positiva" o alegre suena una canción).
+# Si "modo menor = triste" fuera cierto, las canciones en modo menor deberían tener una valencia mucho más baja.
+
+# %%
+print("Valencia según el modo:")
+print(df.groupby("mode")["valence"].agg(["mean", "median"]).round(3))
+r_modo = (df["mode"] == "Minor").astype(int).corr(df["valence"])
+print(f"\nCorrelación entre 'ser modo menor' (0/1) y valence: r = {r_modo:.3f}")
+
+# %%
+comp = pd.DataFrame({
+    "% modo menor": 100 * (df["mode"] == "Minor").groupby(df["music_genre"]).mean(),
+    "valence mediana": df.groupby("music_genre")["valence"].median(),
+}).sort_values("valence mediana")
+fig, ax = plt.subplots(figsize=(9, 6))
+ax.scatter(comp["% modo menor"], comp["valence mediana"], s=80, color=AZUL)
+for g, f in comp.iterrows():
+    ax.annotate(g, (f["% modo menor"], f["valence mediana"]), xytext=(6, -12 if g == "Alternative" else 3), textcoords="offset points")
+ax.set_xlabel("% de canciones en modo menor"); ax.set_ylabel("valence mediana (alegría)")
+ax.set_title(f"¿Más modo menor = más triste?  (r entre géneros = {comp.corr().iloc[0, 1]:.2f})")
 plt.show()
+comp.round(3)
+
+# %% [markdown]
+# 🎯 **Lección:** canción a canción, el modo y la "alegría" **casi no tienen relación** (r ≈ −0,03). Entre géneros sale algo más
+# (r ≈ −0,23), pero con solo 10 puntos y la clásica muy separada del resto: una relación débil y frágil. El country, con un 87 %
+# de modo mayor, es de hecho uno de los géneros con **más** valencia. Su tristeza está en las **letras**, y este dataset no mide las letras.
+#
+# Una variable mide **lo que mide**, no lo que suponemos que mide. Antes de interpretar `mode` como "tristeza" hay que comprobarlo.
+# Y ojo: `valence` tampoco es "la verdad", es otra variable calculada por un algoritmo de Spotify a partir del audio.
 
 # %% [markdown]
 # ## 4. Medidas de posición de una variable: **popularidad**
