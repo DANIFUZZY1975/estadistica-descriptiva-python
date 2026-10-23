@@ -326,7 +326,93 @@ print("Correlación felicidad–log_PIB        :", round(df["felicidad"].corr(df
 # (pista: unidades). Y recordad: **correlación no implica causalidad**.
 
 # %% [markdown]
-# ## 10. ¿Se parece a una normal? Regla empírica vs. desigualdad de Chebyshev
+# ## 10. 📈 Regresión: ¿cuántos años de vida "compra" el dinero?
+# Explicamos la **esperanza de vida saludable** ($y$) a partir del **PIB per cápita** ($x$, en dólares) con tres modelos:
+#
+# | Modelo | Ecuación | Linealización |
+# |---|---|---|
+# | Lineal | $y = a + b\,x$ | — |
+# | Potencial | $y = a\,x^{b}$ | $\ln y = \ln a + b\,\ln x$ |
+# | Exponencial | $y = a\,e^{b x}$ | $\ln y = \ln a + b\,x$ |
+#
+# Con $b = S_{xy}/S_x^2$ y $a = \bar y - b\,\bar x$ aplicados a los datos originales o transformados.
+
+# %%
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.scatter(df["PIB_pc"], df["esperanza_vida"], color=AZUL, s=30, alpha=0.7)
+for p in ["Spain", "United States", "Luxembourg", "India", "Chad", "Botswana"]:
+    f = df.loc[df["pais"] == p].iloc[0]
+    ax.annotate(p, (f["PIB_pc"], f["esperanza_vida"]), xytext=(5, 3), textcoords="offset points", fontsize=9)
+ax.set_xlabel("PIB per cápita ($)"); ax.set_ylabel("Esperanza de vida saludable (años)")
+ax.set_title("¿Es una recta? Mira la forma de la nube")
+plt.show()
+
+# %% [markdown]
+# 🤔 La nube **no es recta**: sube muy deprisa en los países pobres y se aplana en los ricos (rendimientos decrecientes).
+# Es la famosa **curva de Preston** (1975). Veamos qué transformación la endereza:
+
+# %%
+fig, axes = plt.subplots(1, 3, figsize=(16, 4.5))
+axes[0].scatter(df["PIB_pc"], df["esperanza_vida"], s=20, color=AZUL); axes[0].set_title("Original: x, y")
+axes[1].scatter(np.log(df["PIB_pc"]), np.log(df["esperanza_vida"]), s=20, color=NARANJA); axes[1].set_title("Log-log: ln x, ln y  (potencial)")
+axes[2].scatter(df["PIB_pc"], np.log(df["esperanza_vida"]), s=20, color=VERDE); axes[2].set_title("Semilog: x, ln y  (exponencial)")
+for a_ in axes: a_.set_xlabel(""); 
+plt.tight_layout(); plt.show()
+
+# %%
+tabla_reg, modelos = regresiones(df["PIB_pc"], df["esperanza_vida"])
+tabla_reg
+
+# %%
+fig, ax = plt.subplots(figsize=(10, 5.5))
+dibujar_regresiones(df["PIB_pc"], df["esperanza_vida"], modelos, ax=ax,
+                    xlabel="PIB per cápita ($)", ylabel="Esperanza de vida saludable (años)",
+                    titulo="Esperanza de vida según el PIB: tres modelos")
+plt.show()
+
+# %% [markdown]
+# 🎯 **Gana el modelo potencial** con claridad. El exponente $b$ es pequeño (≈ 0,08): es una **elasticidad**.
+# Si el PIB se multiplica por 2, la esperanza de vida se multiplica por $2^{b}$. Calcúlalo:
+
+# %%
+b_pot = tabla_reg.loc["potencial", "b"]
+print(f"Duplicar el PIB multiplica la esperanza de vida por 2^{b_pot:.4f} = {2**b_pot:.4f}  (+{100*(2**b_pot - 1):.1f} %)")
+for pib in [2000, 4000, 30000, 60000]:
+    print(f"PIB {pib:>6,} $ -> esperanza de vida (potencial) {modelos['potencial'](pib):.1f} años")
+
+# %% [markdown]
+# 🤔 Pasar de 2.000 a 4.000 $ "da" muchos más años que pasar de 30.000 a 60.000 $, aunque en ambos casos el PIB se duplica.
+# Y el modelo exponencial (que supone que **cada dólar** añade el mismo porcentaje) es **peor que la recta**.
+#
+# ### Residuos: ¿quién vive más (o menos) de lo que "le toca" por su PIB?
+
+# %%
+df["residuo_vida"] = df["esperanza_vida"] - modelos["potencial"](df["PIB_pc"])
+extremos_vida = pd.concat([df.nlargest(5, "residuo_vida"), df.nsmallest(5, "residuo_vida")])
+extremos_vida[["pais", "region", "PIB_pc", "esperanza_vida", "residuo_vida"]].round(1)
+
+# %%
+fila = df.loc[df["pais"] == "Spain"].iloc[0]
+print(f"España: PIB {fila['PIB_pc']:,.0f} $ -> el modelo predice {modelos['potencial'](fila['PIB_pc']):.1f} años; "
+      f"tiene {fila['esperanza_vida']:.1f} (residuo {fila['residuo_vida']:+.1f})")
+
+# %% [markdown]
+# ### ¿Y la felicidad?
+
+# %%
+tabla_f, modelos_f = regresiones(df["PIB_pc"], df["felicidad"])
+display(tabla_f)
+dibujar_regresiones(df["PIB_pc"], df["felicidad"], modelos_f, xlabel="PIB per cápita ($)", ylabel="Felicidad (0-10)",
+                    titulo="Felicidad según el PIB: tres modelos")
+plt.show()
+
+# %% [markdown]
+# ⚠️ **Cuidado al comparar los $R^2$.** La tabla da dos: el de la **escala del ajuste** (el de la recta sobre los logaritmos)
+# y el de la **escala original** (cuánto se acercan las predicciones a los datos de verdad). Para elegir modelo hay que usar
+# el de la escala original: los otros miden errores en "logaritmos de años", no en años.
+
+# %% [markdown]
+# ## 11. ¿Se parece a una normal? Regla empírica vs. desigualdad de Chebyshev
 # - Normal: ~68 % de datos en $\bar x \pm s$, ~95 % en $\bar x \pm 2s$, ~99.7 % en $\bar x \pm 3s$.
 # - Chebyshev (vale para **cualquier** distribución): al menos $1 - 1/k^2$ en $\bar x \pm ks$.
 
@@ -349,3 +435,4 @@ print("\nPIB per cápita (muy asimétrico):"); print(regla_empirica(df["PIB_pc"]
 # 2. Crea una variable cualitativa ordinal `nivel_felicidad` con `pd.cut` (baja / media / alta) y haz una tabla de contingencia con `region` (`pd.crosstab(..., normalize="index")`).
 # 3. ¿Qué país europeo es el más "anómalo" según su residuo? ¿Y el latinoamericano?
 # 4. Repite el análisis de atípicos con z-scores ( |z| > 2.5 ). ¿Salen los mismos países que con Tukey?
+# 5. Ajusta los tres modelos para `felicidad` frente a `apoyo_social`. ¿Cuál gana? ¿Tiene sentido el exponente?

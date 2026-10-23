@@ -270,7 +270,79 @@ sns.heatmap(corr, mask=mask, annot=True, fmt=".2f", cmap="RdBu_r", center=0, vmi
 plt.title("Correlaciones entre rasgos de audio"); plt.show()
 
 # %% [markdown]
-# ## 9. Calidad de datos: duplicados
+# ## 9. 📈 Regresión: ¿se puede predecir la energía de una canción por su volumen?
+# Tres modelos ajustados por mínimos cuadrados ($x$ = `loudness` en dB, $y$ = `energy`):
+#
+# | Modelo | Ecuación | Linealización | Requisitos |
+# |---|---|---|---|
+# | Lineal | $y = a + b\,x$ | — | ninguno |
+# | Potencial | $y = a\,x^{b}$ | $\ln y = \ln a + b\,\ln x$ | $x > 0$ e $y > 0$ |
+# | Exponencial | $y = a\,e^{b x}$ | $\ln y = \ln a + b\,x$ | $y > 0$ |
+
+# %%
+print("loudness: mínimo", df["loudness"].min(), " máximo", df["loudness"].max())
+print("energy  : mínimo", df["energy"].min(), " máximo", df["energy"].max())
+
+# %% [markdown]
+# 🤔 El volumen en decibelios es **casi siempre negativo** (0 dB es el máximo digital). No existe $\ln x$ para $x \le 0$, así que
+# **el modelo potencial no se puede ajustar**. Antes de elegir un modelo, hay que mirar el **dominio** de las variables.
+
+# %%
+tabla_reg, modelos = regresiones(df["loudness"], df["energy"])
+tabla_reg
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+dibujar_regresiones(df["loudness"], df["energy"], modelos, ax=axes[0],
+                    xlabel="loudness (dB)", ylabel="energy", titulo="Escala original")
+m = df[["loudness", "energy"]].dropna().sample(3000, random_state=1)
+axes[1].scatter(m["loudness"], np.log(m["energy"]), s=10, alpha=0.3, color="#9aa0a6")
+A, B = recta_minimos_cuadrados(df["loudness"], np.log(df["energy"]))
+xs = np.linspace(df["loudness"].min(), df["loudness"].max(), 100)
+axes[1].plot(xs, A + B * xs, color=VERDE, lw=2.5, label="recta sobre ln(energy)")
+axes[1].set_xlabel("loudness (dB)"); axes[1].set_ylabel("ln(energy)"); axes[1].set_title("Escala semilogarítmica")
+axes[1].legend(frameon=False)
+plt.tight_layout(); plt.show()
+
+# %% [markdown]
+# ### ⚠️ La trampa del $R^2$ en escala logarítmica
+# Mira las dos columnas de $R^2$ de la tabla:
+# - En **su escala** (recta sobre $\ln y$), el exponencial tiene un $R^2$ **mayor** que el lineal.
+# - En la **escala original** (predicción de la energía de verdad), el exponencial es **peor** que el lineal.
+#
+# No son comparables: el primero mide qué tal se ajusta una recta a $\ln(\text{energy})$, y el segundo qué tal se predice `energy`.
+# Para elegir entre modelos, **siempre en la escala original**. El logaritmo "estira" los valores pequeños de energía
+# (canciones muy tranquilas) y el ajuste se esfuerza en acertar sobre todo ahí.
+
+# %%
+print(f"Canción a -5 dB (pop actual) : lineal {modelos['lineal'](-5):.3f} | exponencial {modelos['exponencial'](-5):.3f}")
+print(f"Canción a -30 dB (clásica)   : lineal {modelos['lineal'](-30):.3f} | exponencial {modelos['exponencial'](-30):.3f}")
+print(f"Canción a -45 dB             : lineal {modelos['lineal'](-45):.3f} | exponencial {modelos['exponencial'](-45):.3f}")
+
+# %% [markdown]
+# 🤔 ¿Qué modelo predice una energía **negativa** para canciones muy bajitas? La energía va de 0 a 1… **la recta no sabe que hay un suelo**.
+# El exponencial nunca baja de 0… pero mira el gráfico: para canciones muy fuertes (cerca de 0 dB) predice energías **mayores que 1**,
+# y la energía tiene un **techo**. Ninguno de los dos modelos respeta los dos límites (en cursos posteriores veréis modelos que sí).
+# Moraleja: un modelo puede tener buen $R^2$ y aun así decir cosas imposibles.
+#
+# ### ¿Es igual en todos los géneros? Regresión por grupos
+
+# %%
+por_genero = []
+for genero, g in df.groupby("music_genre"):
+    t, _ = regresiones(g["loudness"], g["energy"])
+    por_genero.append({"genero": genero, "n": len(g),
+                       "pendiente_lineal": t.loc["lineal", "b"],
+                       "R2_lineal": t.loc["lineal", "R2 (escala original)"],
+                       "R2_exponencial": t.loc["exponencial", "R2 (escala original)"]})
+pd.DataFrame(por_genero).set_index("genero").sort_values("R2_lineal", ascending=False).round(3)
+
+# %% [markdown]
+# 🤔 En casi todos los géneros gana la recta… salvo en **Classical**, donde el exponencial es claramente mejor. ¿Por qué?
+# (pista: ¿en qué género hay muchas canciones con muy poco volumen y energía casi 0? Vuelve al gráfico de escala original.)
+
+# %% [markdown]
+# ## 10. Calidad de datos: duplicados
 # Una misma canción puede aparecer **varias veces** (y en géneros distintos). ¿Cuántas?
 
 # %%
@@ -291,3 +363,4 @@ pd.crosstab(dup["music_genre"], "repeticiones").sort_values("repeticiones", asce
 # 3. Crea una variable `tempo_cat` con `pd.cut` (lento < 90, medio 90-130, rápido > 130) y cruza con el género. ¿Qué género es el más rápido?
 # 4. Calcula la tonalidad **moda** de cada género (`groupby(...)["key"].agg(lambda s: s.mode()[0])`).
 # 5. Busca la canción más "anómala" del dataset: la que tenga la mayor suma de |z| en todos los rasgos.
+# 6. Ajusta los tres modelos para `acousticness` frente a `energy`. ¿Por qué falla el potencial? (pista: busca valores exactamente 0)

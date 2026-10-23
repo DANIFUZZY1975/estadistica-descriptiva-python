@@ -537,7 +537,118 @@ sns.heatmap(corr, mask=mask, annot=True, fmt=".2f", cmap="RdBu_r", center=0, vmi
 plt.title("Matriz de correlaciones"); plt.show()
 
 # %% [markdown]
-# ## 11. ¿Regla empírica o Chebyshev?
+# ## 11. 📈 Regresión: ¿podemos predecir el peso a partir de la altura?
+# Vamos a ajustar tres modelos por **mínimos cuadrados** para explicar el peso ($y$) a partir de la altura ($x$):
+#
+# | Modelo | Ecuación | Cómo se ajusta |
+# |---|---|---|
+# | Lineal | $y = a + b\,x$ | directamente |
+# | Potencial | $y = a\,x^{b}$ | tomando logaritmos: $\ln y = \ln a + b\,\ln x$ |
+# | Exponencial | $y = a\,e^{b x}$ | tomando logaritmos: $\ln y = \ln a + b\,x$ |
+#
+# ### 11.1 La recta de regresión, paso a paso
+# $$ b = \frac{S_{xy}}{S_x^2}, \qquad a = \bar y - b\,\bar x, \qquad R^2 = r^2 = \left(\frac{S_{xy}}{S_x S_y}\right)^2 $$
+
+# %%
+x, y = df["Height_cm"], df["Weight_kg"]
+media_x, media_y = x.mean(), y.mean()
+Sx2 = ((x - media_x) ** 2).mean()                  # varianza de x (dividiendo entre n)
+Sy2 = ((y - media_y) ** 2).mean()
+Sxy = ((x - media_x) * (y - media_y)).mean()        # covarianza
+b = Sxy / Sx2
+a = media_y - b * media_x
+r = Sxy / np.sqrt(Sx2 * Sy2)
+print(f"media altura = {media_x:.2f} cm   media peso = {media_y:.2f} kg")
+print(f"S_x^2 = {Sx2:.3f}   S_y^2 = {Sy2:.3f}   S_xy = {Sxy:.3f}")
+print(f"b = S_xy / S_x^2 = {b:.4f} kg por cada cm")
+print(f"a = media_y - b·media_x = {a:.3f}")
+print(f"Recta de y sobre x:  peso = {a:.2f} + {b:.4f}·altura")
+print(f"r = {r:.4f}   ->   R^2 = {r**2:.4f}  (la altura explica el {100*r**2:.1f} % de la variabilidad del peso)")
+
+# %% [markdown]
+# 🤔 **Interpretación:** por cada centímetro más de altura, el peso aumenta de media unos `b` kg. ¿Y qué significa `a`?
+# (Sería el peso de un jugador de 0 cm… **no tiene sentido**: fuera del rango de los datos la recta no vale.)
+#
+# ### 11.2 Las dos rectas de regresión
+# La recta de **y sobre x** (predecir el peso con la altura) **no es la misma** que la de **x sobre y** (predecir la altura con el peso).
+# Las dos se cortan en el **centro de gravedad** $(\bar x, \bar y)$, y cuanto más se parecen, mayor es $|r|$.
+
+# %%
+a_xy, b_xy = recta_minimos_cuadrados(y, x)          # altura = a' + b'·peso
+print(f"Recta de x sobre y:  altura = {a_xy:.2f} + {b_xy:.4f}·peso")
+print(f"Comprobación: b · b' = {b * b_xy:.4f} = r^2 = {r**2:.4f}")
+
+fig, ax = plt.subplots(figsize=(9, 6))
+m = df.sample(3000, random_state=1)
+ax.scatter(m["Height_cm"], m["Weight_kg"], s=10, alpha=0.3, color="#9aa0a6")
+xs = np.linspace(x.min(), x.max(), 100)
+ax.plot(xs, a + b * xs, color=AZUL, lw=2.5, label="y sobre x (peso según altura)")
+ys = np.linspace(y.min(), y.max(), 100)
+ax.plot(a_xy + b_xy * ys, ys, color=NARANJA, lw=2.5, label="x sobre y (altura según peso)")
+ax.scatter([media_x], [media_y], s=120, color="#333333", zorder=5, label="centro de gravedad")
+ax.set_xlabel("Altura (cm)"); ax.set_ylabel("Peso (kg)"); ax.set_title("Las dos rectas de regresión")
+ax.legend(frameon=False); plt.show()
+
+# %% [markdown]
+# ### 11.3 Modelos potencial y exponencial: linealizar con logaritmos
+# Si $y = a\,x^b$, entonces $\ln y = \ln a + b \ln x$: **en escala log-log los puntos deberían quedar en una recta**.
+# Si $y = a\,e^{bx}$, entonces $\ln y = \ln a + b\,x$: **en escala semilogarítmica** deberían quedar en una recta.
+# Así que ajustar estos modelos es simplemente ajustar una recta… a los datos transformados.
+
+# %%
+fig, axes = plt.subplots(1, 3, figsize=(16, 4.5))
+axes[0].scatter(m["Height_cm"], m["Weight_kg"], s=8, alpha=0.3, color=AZUL); axes[0].set_title("Original: x, y")
+axes[1].scatter(np.log(m["Height_cm"]), np.log(m["Weight_kg"]), s=8, alpha=0.3, color=NARANJA); axes[1].set_title("Log-log: ln x, ln y  (potencial)")
+axes[2].scatter(m["Height_cm"], np.log(m["Weight_kg"]), s=8, alpha=0.3, color=VERDE); axes[2].set_title("Semilog: x, ln y  (exponencial)")
+plt.tight_layout(); plt.show()
+
+# %%
+tabla_reg, modelos = regresiones(df["Height_cm"], df["Weight_kg"])
+tabla_reg
+
+# %%
+dibujar_regresiones(df["Height_cm"], df["Weight_kg"], modelos,
+                    xlabel="Altura (cm)", ylabel="Peso (kg)", titulo="Peso según la altura: tres modelos")
+plt.show()
+
+# %% [markdown]
+# 🎯 **¡El exponente del modelo potencial sale cerca de 2!** El **índice de masa corporal** (IMC = peso / altura²) da por hecho que
+# el peso crece con el **cuadrado** de la altura. Los datos dicen algo parecido. (Si el cuerpo creciera igual en las tres dimensiones,
+# el exponente sería 3.)
+#
+# 🤔 Los tres modelos tienen un $R^2$ casi idéntico. En el rango de alturas de los futbolistas (150–206 cm) las tres curvas son
+# prácticamente rectas: **cuando los datos cubren un rango estrecho, la forma del modelo importa poco**.
+#
+# ### 11.4 Residuos: ¿qué queda sin explicar?
+# Residuo $e_i = y_i - \hat y_i$. Si el modelo es bueno, los residuos no deberían mostrar ningún patrón.
+
+# %%
+df["residuo_peso"] = df["Weight_kg"] - modelos["lineal"](df["Height_cm"])
+fig, axes = plt.subplots(1, 2, figsize=(15, 4))
+mm = df.sample(3000, random_state=1)
+axes[0].scatter(mm["Height_cm"], mm["residuo_peso"], s=8, alpha=0.3, color=AZUL)
+axes[0].axhline(0, color="#333333"); axes[0].set_title("Residuos frente a la altura"); axes[0].set_xlabel("Altura (cm)")
+sns.histplot(df["residuo_peso"], bins=40, ax=axes[1], color=AZUL); axes[1].set_title("Distribución de los residuos")
+plt.tight_layout(); plt.show()
+print(f"Media de los residuos: {df['residuo_peso'].mean():.2e} (siempre 0 en mínimos cuadrados)")
+print(f"Varianza residual: {df['residuo_peso'].var(ddof=0):.3f} = S_y^2·(1 - R^2) = {Sy2 * (1 - r**2):.3f}")
+print("\nLos 5 jugadores más 'pesados para su altura':")
+print(df.nlargest(5, "residuo_peso")[["Name", "Height_cm", "Weight_kg", "residuo_peso", "Position"]].to_string(index=False))
+
+# %% [markdown]
+# ### 11.5 Predecir (con cuidado)
+
+# %%
+for altura in [170, 190, 230]:
+    print(f"Altura {altura} cm -> lineal: {modelos['lineal'](altura):.1f} kg | "
+          f"potencial: {modelos['potencial'](altura):.1f} kg | exponencial: {modelos['exponencial'](altura):.1f} kg")
+
+# %% [markdown]
+# ⚠️ Para 230 cm los modelos ya no coinciden: estamos **extrapolando** fuera del rango observado (149–206 cm).
+# Ningún modelo garantiza nada fuera de los datos con los que se ajustó.
+
+# %% [markdown]
+# ## 12. ¿Regla empírica o Chebyshev?
 
 # %%
 m, s = df["OVR"].mean(), df["OVR"].std()
@@ -554,4 +665,6 @@ pd.DataFrame({
 # 3. Construye el **"once ideal"**: el mejor jugador (mayor OVR) de cada posición con `groupby("Position")["OVR"].idxmax()`.
 # 4. ¿Qué equipo **femenino** tiene el OVR medio más alto? ¿Y la liga femenina más igualada?
 # 5. ¿Qué nacionalidad (con n ≥ 50) es la más **homogénea** en OVR? ¿Y la más desigual?
-# 6. Elige tú una pregunta y respóndela con un `groupby` y un gráfico. ¡La mejor se enseña en clase!
+# 6. Repite la regresión potencial peso ~ altura **solo con hombres** y **solo con mujeres**. ¿Sale el mismo exponente que con todos juntos? ¿Por qué?
+# 7. Ajusta los tres modelos para `Sprint Speed` frente a `Acceleration`. ¿Cuál gana?
+# 8. Elige tú una pregunta y respóndela con un `groupby` y un gráfico. ¡La mejor se enseña en clase!
