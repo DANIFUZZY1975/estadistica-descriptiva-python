@@ -91,15 +91,75 @@ print(f"Vallas de Tukey: [{li:.1f}, {ls:.1f}] -> {len(grandes)} equipos atípico
 grandes.head(15).to_frame()
 
 # %% [markdown]
-# Everton 68, Liverpool 66, Chelsea 65… ¿Tienen el triple de jugadores que el resto? Abramos uno:
+# Everton 68, Liverpool 66, Chelsea 65… ¿Tienen el triple de jugadores que el resto?
+#
+# ### 🔍 Investigamos: el Everton frente a un equipo "normal" (el Real Madrid)
+# Si el Everton fuera simplemente una plantilla grande, sus jugadores deberían parecerse físicamente a los de cualquier otro equipo
+# de primera. Comparemos la **altura** y el **peso** de los dos equipos.
 
 # %%
-df[df["Team"] == "Liverpool"].groupby("League").agg(n=("Name", "size"), altura_mediana=("Height_cm", "median"))
+everton = df[df["Team"] == "Everton"]
+madrid = df[df["Team"] == "Real Madrid"]
+
+for nombre, eq in [("Everton", everton), ("Real Madrid", madrid)]:
+    print(f"\n--- {nombre} ({len(eq)} jugadores) ---")
+    print(eq[["Height_cm", "Weight_kg"]].agg(["mean", "median", "std", "min", "max"]).round(1))
 
 # %% [markdown]
-# Bajo el nombre "Liverpool" hay **tres equipos distintos**: el masculino (Premier League), el **femenino** (Barclays WSL)
-# y el **Liverpool de Montevideo** (Uruguay, Copa Libertadores). Los atípicos no eran equipos enormes: eran **varios equipos con el mismo nombre**.
-# El análisis descriptivo de una variable aparentemente aburrida nos ha descubierto un problema en cómo agrupábamos.
+# 🤔 Las **medias** se parecen bastante (179 cm frente a 181). Si solo miráramos la media, no veríamos nada raro.
+# Pero fíjate en la **desviación típica** y en el **mínimo**: el Everton tiene jugadores de 1,60 m y mucha más dispersión. Dibujemos:
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(15, 4.5))
+for ax, v, etiqueta in [(axes[0], "Height_cm", "Altura (cm)"), (axes[1], "Weight_kg", "Peso (kg)")]:
+    bins = range(158, 203, 3) if v == "Height_cm" else range(50, 100, 3)      # mismos intervalos para los dos equipos
+    sns.histplot(everton[v], bins=bins, color=NARANJA, alpha=0.5, label="Everton", stat="percent", ax=ax)
+    sns.histplot(madrid[v], bins=bins, color=AZUL, alpha=0.5, label="Real Madrid", stat="percent", ax=ax)
+    ax.axvline(everton[v].median(), color=NARANJA, ls="--", lw=2)
+    ax.axvline(madrid[v].median(), color=AZUL, ls="--", lw=2)
+    ax.set_xlabel(etiqueta); ax.legend(frameon=False)
+axes[0].set_title("Altura: Everton frente a Real Madrid")
+axes[1].set_title("Peso: Everton frente a Real Madrid")
+plt.tight_layout(); plt.show()
+
+# %%
+fig, ax = plt.subplots(figsize=(9, 4))
+sns.boxplot(data=pd.concat([everton.assign(equipo_="Everton"), madrid.assign(equipo_="Real Madrid")]),
+            x="Height_cm", y="equipo_", hue="equipo_", palette=[NARANJA, AZUL], legend=False, width=0.5, ax=ax)
+sns.stripplot(data=pd.concat([everton.assign(equipo_="Everton"), madrid.assign(equipo_="Real Madrid")]),
+              x="Height_cm", y="equipo_", color="#333333", size=4, alpha=0.6, ax=ax)
+ax.set_title("Altura de cada jugador"); ax.set_xlabel("Altura (cm)"); ax.set_ylabel("")
+plt.show()
+
+# %% [markdown]
+# 🎯 El Everton tiene una **cola de jugadores bajos y ligeros** (entre 1,60 y 1,70 m, por debajo de 60 kg) que en el Real Madrid
+# apenas existe: allí solo un jugador baja de 1,70 m. Contémoslos:
+
+# %%
+for nombre, eq in [("Everton", everton), ("Real Madrid", madrid)]:
+    print(f"{nombre:12s}: {(eq['Height_cm'] < 170).sum():2d} de {len(eq)} jugadores miden menos de 1,70 m "
+          f"({100 * (eq['Height_cm'] < 170).mean():.0f} %)")
+
+# %% [markdown]
+# Además, la desviación típica del Everton es mayor (8,7 cm frente a 7,6) aunque la media sea casi igual.
+# Sospecha: **estamos mezclando
+# poblaciones distintas**. ¿Cuáles? Miramos en qué liga juega cada jugador del "Everton":
+
+# %%
+everton.groupby("League").agg(n=("Name", "size"), altura_media=("Height_cm", "mean"),
+                              altura_mediana=("Height_cm", "median"), peso_mediano=("Weight_kg", "median")).round(1)
+
+# %% [markdown]
+# 💥 **¡Acabamos de dar con el problema!** Bajo el nombre "Everton" hay **tres equipos distintos**:
+# - el Everton masculino (Premier League),
+# - el Everton **femenino** (Barclays WSL): ¡14 cm más bajas de media que el masculino! Ellas forman la cola izquierda,
+# - el **Everton de Viña del Mar** (Chile, Copa Sudamericana).
+#
+# Con el Liverpool pasa lo mismo (masculino, femenino y el **Liverpool de Montevideo**, de Uruguay). Compruébalo cambiando
+# `"Everton"` por `"Liverpool"` en las celdas anteriores.
+#
+# Los atípicos no eran equipos enormes: eran **varios equipos con el mismo nombre**. Y lo hemos descubierto
+# describiendo dos variables (altura y peso) y comparando su **distribución**, no solo su media.
 #
 # **Solución:** identificar cada equipo por *nombre + liga* y repetir la descripción.
 
