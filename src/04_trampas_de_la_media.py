@@ -45,15 +45,15 @@ comparacion.round(1)
 # En 1973 el estadístico Francis Anscombe construyó cuatro conjuntos de 11 puntos para demostrar que **hay que dibujar los datos**.
 
 # %%
-ans = cargar("anscombe.csv")
-def estadisticos_xy(g):
-    a, b = recta_minimos_cuadrados(g["x"], g["y"])
-    return pd.Series({"media_x": g["x"].mean(), "media_y": g["y"].mean(),
-                      "var_x": g["x"].var(), "var_y": g["y"].var(),
-                      "r": g["x"].corr(g["y"]), "recta_a": a, "recta_b": b,
-                      "R2": g["x"].corr(g["y"]) ** 2})
-
-ans.groupby("dataset")[["x", "y"]].apply(estadisticos_xy).round(2)
+ans = pd.read_csv(URL_DATOS + "anscombe.csv")
+tabla_ans = ans.groupby("dataset").agg(media_x=("x", "mean"), media_y=("y", "mean"),
+                                       var_x=("x", "var"), var_y=("y", "var"),
+                                       desv_x=("x", "std"), desv_y=("y", "std"))
+tabla_ans["r"] = [g["x"].corr(g["y"]) for _, g in ans.groupby("dataset")]
+tabla_ans["recta_b"] = tabla_ans["r"] * tabla_ans["desv_y"] / tabla_ans["desv_x"]      # b = S_xy / S_x² = r · S_y / S_x
+tabla_ans["recta_a"] = tabla_ans["media_y"] - tabla_ans["recta_b"] * tabla_ans["media_x"]
+tabla_ans["R2"] = tabla_ans["r"] ** 2
+tabla_ans.round(2)
 
 # %% [markdown]
 # Los cuatro tienen, a dos decimales, **la misma media, la misma varianza, la misma correlación y la misma recta de regresión**
@@ -63,7 +63,8 @@ ans.groupby("dataset")[["x", "y"]].apply(estadisticos_xy).round(2)
 fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharex=True, sharey=True)
 xs = np.linspace(2, 20, 50)
 for ax, (nombre, g) in zip(axes.flat, ans.groupby("dataset")):
-    a, b = recta_minimos_cuadrados(g["x"], g["y"])
+    b = g["x"].cov(g["y"]) / g["x"].var()          # pendiente = covarianza / varianza de x
+    a = g["y"].mean() - b * g["x"].mean()
     ax.scatter(g["x"], g["y"], s=60, color=AZUL, zorder=3)
     ax.plot(xs, a + b * xs, color=NARANJA, lw=2)
     ax.set_title(f"Conjunto {nombre}:  y = {a:.2f} + {b:.2f}·x,  R² = {g['x'].corr(g['y'])**2:.2f}")
@@ -81,7 +82,8 @@ plt.tight_layout(); plt.show()
 # %%
 fig, axes = plt.subplots(1, 4, figsize=(16, 3.5), sharey=True)
 for ax, (nombre, g) in zip(axes, ans.groupby("dataset")):
-    a, b = recta_minimos_cuadrados(g["x"], g["y"])
+    b = g["x"].cov(g["y"]) / g["x"].var()
+    a = g["y"].mean() - b * g["x"].mean()
     ax.scatter(g["x"], g["y"] - (a + b * g["x"]), s=50, color=AZUL)
     ax.axhline(0, color="#333333"); ax.set_title(f"Residuos {nombre}")
 plt.tight_layout(); plt.show()
@@ -96,9 +98,13 @@ plt.tight_layout(); plt.show()
 # Primero, solo los números:
 
 # %%
-dino = cargar("datasaurus_dozen.tsv", sep="\t")
-tabla_dino = dino.groupby("dataset")[["x", "y"]].apply(estadisticos_xy).round(2)
-tabla_dino
+dino = pd.read_csv(URL_DATOS + "datasaurus_dozen.tsv", sep="\t")
+tabla_dino = dino.groupby("dataset").agg(media_x=("x", "mean"), media_y=("y", "mean"),
+                                         desv_x=("x", "std"), desv_y=("y", "std"))
+tabla_dino["r"] = [g["x"].corr(g["y"]) for _, g in dino.groupby("dataset")]
+tabla_dino["recta_b"] = tabla_dino["r"] * tabla_dino["desv_y"] / tabla_dino["desv_x"]
+tabla_dino["recta_a"] = tabla_dino["media_y"] - tabla_dino["recta_b"] * tabla_dino["media_x"]
+tabla_dino.round(2)
 
 # %% [markdown]
 # 🤔 **Antes de seguir:** ¿cuál de los 13 es un dinosaurio? Con la tabla es imposible saberlo. Ahora dibujamos:
@@ -122,7 +128,7 @@ plt.tight_layout(); plt.show()
 # El diagrama de caja resume una variable en 5 números (mín., Q1, mediana, Q3, máx.). ¿Basta con eso?
 
 # %%
-cajas = cargar("mismo_boxplot.tsv", sep="\t").rename(columns={"Plot": "distribucion", "Values": "valor"})
+cajas = pd.read_csv(URL_DATOS + "mismo_boxplot.tsv", sep="\t").rename(columns={"Plot": "distribucion", "Values": "valor"})
 cajas.groupby("distribucion")["valor"].describe().round(2)
 
 # %%
@@ -144,7 +150,7 @@ plt.tight_layout(); plt.show()
 # ¿Las distinguen las **medidas de forma**?
 
 # %%
-cajas.groupby("distribucion")["valor"].agg(asimetria="skew", curtosis="kurt", moda=moda).loc[orden_c].round(2)
+cajas.groupby("distribucion")["valor"].agg(asimetria="skew", curtosis="kurt").loc[orden_c].round(2)
 
 # %% [markdown]
 # 🤔 Solo **a medias**: la curtosis delata a `split` (muy negativa: poca masa en el centro) y la asimetría apunta a `left`/`right`,
@@ -212,7 +218,7 @@ for s, g in berkeley.groupby("sexo"):
 # %% [markdown]
 # ### 🚀 Retos de la sesión 1
 # 1. En el bar, ¿cuántos Bill Gates hacen falta para que la **mediana** cambie de forma apreciable? ¿Y el IQR?
-# 2. Ajusta los modelos lineal, potencial y exponencial (`regresiones(x, y)`) al conjunto II de Anscombe. ¿Alguno sirve? Prueba a ajustar una parábola con `np.polyfit(x, y, 2)`.
+# 2. Ajusta los modelos lineal, potencial y exponencial al conjunto II de Anscombe (con las fórmulas de los otros notebooks). ¿Alguno sirve? Prueba a ajustar una parábola con `np.polyfit(x, y, 2)`.
 # 3. En el conjunto III, quita el atípico y recalcula la recta. ¿Cuánto cambian la pendiente y el $R^2$?
 # 4. Calcula la asimetría y la curtosis de los 13 conjuntos del Datasaurus (para `x` y para `y`). ¿Se distinguen ahora?
 # 5. Inventa tu propio "bar": una muestra de 20 números donde la media sea 50, pero ningún dato esté entre 40 y 60.

@@ -37,7 +37,7 @@
 # y de las celdas vacías tras altura y peso.
 
 # %%
-df = cargar("all_players_dani.csv", sep=";")
+df = pd.read_csv(URL_DATOS + "all_players_dani.csv", sep=";")
 print("Dimensiones originales:", df.shape)
 df = df.loc[:, ~df.columns.str.startswith("Unnamed")]   # fuera TODAS las columnas Unnamed de una vez
 df = df.rename(columns={"Height": "Height_cm", "Weight": "Weight_kg"})
@@ -61,7 +61,12 @@ print("\n¿Jugadores duplicados (mismo nombre, equipo y edad)?", df.duplicated([
 # %%
 plantilla = df["Team"].value_counts().rename("plantilla")
 print("Número de equipos:", plantilla.size)
-resumen(plantilla).round(2)
+# Las mismas medidas que para cualquier variable: posición, dispersión y forma
+print(plantilla.describe().round(2))
+print(f"IQR        : {plantilla.quantile(0.75) - plantilla.quantile(0.25)}")
+print(f"CV         : {100 * plantilla.std() / plantilla.mean():.1f} %")
+print(f"Asimetría  : {plantilla.skew():.2f}")
+print(f"Curtosis   : {plantilla.kurt():.2f}")
 
 # %%
 fig, axes = plt.subplots(1, 2, figsize=(15, 4), gridspec_kw={"width_ratios": [3, 1]})
@@ -77,7 +82,10 @@ plt.tight_layout(); plt.show()
 # y la caja marca muchos **atípicos**. ¿Quiénes son?
 
 # %%
-li, ls = limites_tukey(plantilla)
+# Regla de Tukey: atípico si está fuera de [Q1 - 1.5·IQR , Q3 + 1.5·IQR]
+q1, q3 = plantilla.quantile(0.25), plantilla.quantile(0.75)
+iqr = q3 - q1
+li, ls = q1 - 1.5 * iqr, q3 + 1.5 * iqr
 grandes = plantilla[plantilla > ls]
 print(f"Vallas de Tukey: [{li:.1f}, {ls:.1f}] -> {len(grandes)} equipos atípicos por arriba")
 grandes.head(15).to_frame()
@@ -98,7 +106,11 @@ df[df["Team"] == "Liverpool"].groupby("League").agg(n=("Name", "size"), altura_m
 # %%
 df["equipo"] = df["Team"] + " (" + df["League"] + ")"
 plantilla2 = df["equipo"].value_counts().rename("plantilla")
-pd.DataFrame({"por Team": resumen(plantilla), "por equipo + liga": resumen(plantilla2)}).round(2)
+comparacion = pd.DataFrame({
+    "por Team": plantilla.agg(["count", "mean", "median", "std", "min", "max", "skew", "kurt"]),
+    "por equipo + liga": plantilla2.agg(["count", "mean", "median", "std", "min", "max", "skew", "kurt"]),
+})
+comparacion.round(2)
 
 # %%
 fig, ax = plt.subplots(figsize=(12, 4))
@@ -107,7 +119,9 @@ sns.histplot(plantilla2, bins=range(0, 72, 2), color=AZUL, alpha=0.6, label="por
 ax.set_title("Jugadores por equipo: antes y después de separar homónimos"); ax.set_xlabel("jugadores")
 ax.legend(frameon=False); plt.show()
 
-li2, ls2 = limites_tukey(plantilla2)
+q1_2, q3_2 = plantilla2.quantile(0.25), plantilla2.quantile(0.75)
+iqr2 = q3_2 - q1_2
+li2, ls2 = q1_2 - 1.5 * iqr2, q3_2 + 1.5 * iqr2
 print(f"Atípicos ahora: {((plantilla2 < li2) | (plantilla2 > ls2)).sum()} (antes: {((plantilla < li) | (plantilla > ls)).sum()})")
 plantilla2.head(8).to_frame()
 
@@ -207,8 +221,13 @@ print("Deciles               :", x.quantile(np.arange(.1, 1, .1)).round(1).tolis
 print(f"Para estar en el top 1 % necesitas OVR ≥ {x.quantile(.99):.0f}")
 
 # %%
-histograma_con_centros(df["OVR"], "Distribución de la valoración global (OVR)", bins=range(40, 100, 2))
-plt.xlabel("OVR"); plt.show()
+x = df["OVR"]
+sns.histplot(x, bins=range(40, 100, 2), kde=True, color=AZUL, alpha=0.35)
+plt.axvline(x.mean(), color="#333333", ls="-", lw=2, label=f"media = {x.mean():.2f}")
+plt.axvline(x.median(), color="#333333", ls="--", lw=2, label=f"mediana = {x.median():.2f}")
+plt.axvline(x.mode()[0], color="#333333", ls=":", lw=2, label=f"moda = {x.mode()[0]}")
+plt.title("Distribución de la valoración global (OVR)"); plt.xlabel("OVR"); plt.legend(frameon=False)
+plt.show()
 
 # %% [markdown]
 # ### ¿Cuántas barras pongo en el histograma? El número de clases cambia la historia
@@ -258,13 +277,21 @@ cv.sort_values("CV_%")
 
 # %% [markdown]
 # ## 5. Tabla resumen de las variables cuantitativas
-# Una función `resumen()` (definida arriba) aplicada a todas las columnas con `.apply()`.
+# Con `.agg()` calculamos muchas medidas a la vez para todas las columnas; luego añadimos las que no vienen hechas.
 
 # %%
-tabla = df[cuantitativas].apply(resumen).T
+tabla = df[cuantitativas].agg(["count", "mean", "median", "min", "max", "var", "std", "skew", "kurt"]).T
+tabla["Q1"] = df[cuantitativas].quantile(0.25)
+tabla["Q3"] = df[cuantitativas].quantile(0.75)
+tabla["rango"] = tabla["max"] - tabla["min"]
+tabla["IQR"] = tabla["Q3"] - tabla["Q1"]
+tabla["CV_%"] = 100 * tabla["std"] / tabla["mean"]
 (tabla.style.format("{:,.2f}")
-     .background_gradient(subset=["asimetria_Fisher"], cmap="RdBu_r", vmin=-1.5, vmax=1.5)
+     .background_gradient(subset=["skew"], cmap="RdBu_r", vmin=-1.5, vmax=1.5)
      .background_gradient(subset=["CV_%"], cmap="Oranges"))
+
+# %% [markdown]
+# `skew` es la asimetría de Fisher y `kurt` la curtosis (en exceso: 0 = como la normal). Ojo: `var` y `std` de pandas dividen entre $n-1$.
 
 # %% [markdown]
 # ## 6. Medidas de forma: ¿por qué hay histogramas con dos jorobas?
@@ -281,7 +308,10 @@ plt.tight_layout(); plt.show()
 # %%
 fig, axes = plt.subplots(2, 3, figsize=(15, 8))
 for ax, attr in zip(axes.flat, seis):
-    histograma_con_centros(df[attr], f"{attr}  (asim. = {df[attr].skew():.2f})", bins=range(0, 101, 4), ax=ax)
+    sns.histplot(df[attr], bins=range(0, 101, 4), kde=True, color=AZUL, alpha=0.35, ax=ax)
+    ax.axvline(df[attr].mean(), color="#333333", ls="-", lw=2, label=f"media = {df[attr].mean():.1f}")
+    ax.axvline(df[attr].median(), color="#333333", ls="--", lw=2, label=f"mediana = {df[attr].median():.1f}")
+    ax.set_title(f"{attr}  (asim. = {df[attr].skew():.2f})")
     ax.set_xlabel(""); ax.legend(fontsize=8, frameon=False)
 plt.suptitle("Las seis medias principales", fontweight="bold")
 plt.tight_layout(); plt.show()
@@ -329,7 +359,7 @@ print(f"SHO media con porteros: {df['SHO'].mean():.2f} | sin porteros: {campo['S
 # %% [markdown]
 # ### 🚀 Retos de la sesión 1
 # 1. Haz la tabla de frecuencias de `Weak foot` con frecuencias acumuladas. ¿Cuál es su mediana?
-# 2. Compara media, mediana y moda de `Age` con `histograma_con_centros(df['Age'])`. ¿Qué asimetría tiene?
+# 2. Calcula media, mediana y moda de `Age` y dibuja su histograma con las tres marcadas (`plt.axvline`). ¿Qué asimetría tiene?
 # 3. ¿Qué atributo (de la lista `atributos`) tiene el **mayor** coeficiente de variación? ¿Y el menor? ¿Por qué crees que es así?
 # 4. Busca otro atributo con dos jorobas, además de `DEF` y `Sliding Tackle`, y explica qué grupos se mezclan.
 #
@@ -347,7 +377,10 @@ print(f"SHO media con porteros: {df['SHO'].mean():.2f} | sin porteros: {campo['S
 # ## 7. Datos anómalos
 
 # %%
-li, ls = limites_tukey(df["OVR"])
+q1, q3 = df["OVR"].quantile(0.25), df["OVR"].quantile(0.75)
+iqr = q3 - q1
+li, ls = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+print(f"Q1 = {q1}, Q3 = {q3}, IQR = {iqr}")
 print(f"Vallas de Tukey para OVR: [{li:.1f}, {ls:.1f}]")
 cracks = df[df["OVR"] > ls]
 print(f"{len(cracks)} jugadores son 'atípicos por arriba':")
@@ -373,10 +406,12 @@ for v in ["Age", "Height_cm", "Weight_kg"]:
 # %%
 filas = []
 for sexo, g in df.groupby("sexo"):
-    li, ls = limites_tukey(g["Height_cm"])
+    q1, q3 = g["Height_cm"].quantile(0.25), g["Height_cm"].quantile(0.75)
+    li, ls = q1 - 1.5 * (q3 - q1), q3 + 1.5 * (q3 - q1)
     filas.append({"sexo": sexo, "valla_inf": li, "valla_sup": ls,
                   "atipicos_dentro_del_grupo": ((g["Height_cm"] < li) | (g["Height_cm"] > ls)).sum()})
-li, ls = limites_tukey(df["Height_cm"])
+q1, q3 = df["Height_cm"].quantile(0.25), df["Height_cm"].quantile(0.75)
+li, ls = q1 - 1.5 * (q3 - q1), q3 + 1.5 * (q3 - q1)
 print(f"Todos juntos: vallas [{li:.1f}, {ls:.1f}] -> {((df['Height_cm'] < li) | (df['Height_cm'] > ls)).sum()} atípicos")
 pd.DataFrame(filas).set_index("sexo")
 
@@ -400,25 +435,18 @@ extremos
 # %% [markdown]
 # 🤔 Un 97 en ritmo y un 90 en defensa: ¿cuál es **más** excepcional? El que tenga mayor z.
 
-# %%
-def ficha_jugador(nombre):
-    """Valor, z y percentil de un jugador en las seis medias y en OVR."""
-    fila = df.loc[df["Name"] == nombre]
-    if fila.empty:
-        print("No encontrado. Prueba con:", df["Name"].head(10).tolist()); return
-    fila = fila.iloc[0]
-    out = []
-    for v in ["OVR"] + seis + ["Age", "Height_cm"]:
-        out.append({"variable": v, "valor": fila[v],
-                    "z": (fila[v] - df[v].mean()) / df[v].std(),
-                    "percentil": stats.percentileofscore(df[v], fila[v])})
-    print(f"{fila['Name']} · {fila['Position']} · {fila['Team']}")
-    return pd.DataFrame(out).set_index("variable")
-
-ficha_jugador(df.loc[df["OVR"].idxmax(), "Name"])
-
 # %% [markdown]
-# 👉 Probad con vuestro jugador favorito: `ficha_jugador("Pedri")`, `ficha_jugador("Lamine Yamal")`…
+# ### La ficha de un jugador: valor, z y percentil en cada variable
+# 👉 Cambia el nombre por tu jugador favorito: `"Pedri"`, `"Lamine Yamal"`, `"Aitana Bonmatí"`…
+
+# %%
+jugador = "Kylian Mbappé"
+fila = df[df["Name"] == jugador].iloc[0]
+print(f"{fila['Name']} · {fila['Position']} · {fila['Team']}")
+for v in ["OVR"] + seis + ["Age", "Height_cm"]:
+    z = (fila[v] - df[v].mean()) / df[v].std()
+    percentil = 100 * (df[v] <= fila[v]).mean()          # % de jugadores con un valor menor o igual
+    print(f"{v:10s} valor = {fila[v]:6.1f}   z = {z:+.2f}   percentil = {percentil:5.1f}")
 
 # %% [markdown]
 # ## 9. 🏆 Comparación por grupos con `groupby`
@@ -621,7 +649,9 @@ print(f"r = {r:.4f}   ->   R^2 = {r**2:.4f}  (la altura explica el {100*r**2:.1f
 # Las dos se cortan en el **centro de gravedad** $(\bar x, \bar y)$, y cuanto más se parecen, mayor es $|r|$.
 
 # %%
-a_xy, b_xy = recta_minimos_cuadrados(y, x)          # altura = a' + b'·peso
+# Recta de x sobre y: se intercambian los papeles -> b' = S_xy / S_y^2
+b_xy = Sxy / Sy2
+a_xy = media_x - b_xy * media_y                    # altura = a' + b'·peso
 print(f"Recta de x sobre y:  altura = {a_xy:.2f} + {b_xy:.4f}·peso")
 print(f"Comprobación: b · b' = {b * b_xy:.4f} = r^2 = {r**2:.4f}")
 
@@ -650,13 +680,37 @@ axes[2].scatter(m["Height_cm"], np.log(m["Weight_kg"]), s=8, alpha=0.3, color=VE
 plt.tight_layout(); plt.show()
 
 # %%
-tabla_reg, modelos = regresiones(df["Height_cm"], df["Weight_kg"])
-tabla_reg
+x, y = df["Height_cm"], df["Weight_kg"]
+
+# --- Lineal: y = a + b·x  (ya calculada arriba)
+pred_lin = a + b * x
+
+# --- Potencial: ln y = A + b_pot·ln x  ->  y = e^A · x^b_pot
+lx, ly = np.log(x), np.log(y)
+b_pot = ((lx - lx.mean()) * (ly - ly.mean())).mean() / ((lx - lx.mean()) ** 2).mean()
+a_pot = np.exp(ly.mean() - b_pot * lx.mean())
+pred_pot = a_pot * x ** b_pot
+
+# --- Exponencial: ln y = A + b_exp·x  ->  y = e^A · e^(b_exp·x)
+b_exp = ((x - x.mean()) * (ly - ly.mean())).mean() / ((x - x.mean()) ** 2).mean()
+a_exp = np.exp(ly.mean() - b_exp * x.mean())
+pred_exp = a_exp * np.exp(b_exp * x)
+
+# --- R² en la escala original: 1 - (suma de residuos²) / (suma de (y - media)²)
+SC_total = ((y - y.mean()) ** 2).sum()
+print(f"Lineal      : peso = {a:.3f} + {b:.4f}·altura          R² = {1 - ((y - pred_lin) ** 2).sum() / SC_total:.4f}")
+print(f"Potencial   : peso = {a_pot:.6f}·altura^{b_pot:.4f}     R² = {1 - ((y - pred_pot) ** 2).sum() / SC_total:.4f}")
+print(f"Exponencial : peso = {a_exp:.4f}·e^({b_exp:.5f}·altura)  R² = {1 - ((y - pred_exp) ** 2).sum() / SC_total:.4f}")
 
 # %%
-dibujar_regresiones(df["Height_cm"], df["Weight_kg"], modelos,
-                    xlabel="Altura (cm)", ylabel="Peso (kg)", titulo="Peso según la altura: tres modelos")
-plt.show()
+xs = np.linspace(x.min(), x.max(), 300)
+plt.figure(figsize=(10, 5))
+plt.scatter(m["Height_cm"], m["Weight_kg"], s=10, alpha=0.3, color="#9aa0a6")
+plt.plot(xs, a + b * xs, color=AZUL, lw=2.5, label="lineal")
+plt.plot(xs, a_pot * xs ** b_pot, color=NARANJA, lw=2.5, label="potencial")
+plt.plot(xs, a_exp * np.exp(b_exp * xs), color=VERDE, lw=2.5, label="exponencial")
+plt.xlabel("Altura (cm)"); plt.ylabel("Peso (kg)"); plt.title("Peso según la altura: tres modelos")
+plt.legend(frameon=False); plt.show()
 
 # %% [markdown]
 # 🎯 **¡El exponente del modelo potencial sale cerca de 2!** El **índice de masa corporal** (IMC = peso / altura²) da por hecho que
@@ -670,7 +724,7 @@ plt.show()
 # Residuo $e_i = y_i - \hat y_i$. Si el modelo es bueno, los residuos no deberían mostrar ningún patrón.
 
 # %%
-df["residuo_peso"] = df["Weight_kg"] - modelos["lineal"](df["Height_cm"])
+df["residuo_peso"] = df["Weight_kg"] - (a + b * df["Height_cm"])
 fig, axes = plt.subplots(1, 2, figsize=(15, 4))
 mm = df.sample(3000, random_state=1)
 axes[0].scatter(mm["Height_cm"], mm["residuo_peso"], s=8, alpha=0.3, color=AZUL)
@@ -687,8 +741,8 @@ print(df.nlargest(5, "residuo_peso")[["Name", "Height_cm", "Weight_kg", "residuo
 
 # %%
 for altura in [170, 190, 230]:
-    print(f"Altura {altura} cm -> lineal: {modelos['lineal'](altura):.1f} kg | "
-          f"potencial: {modelos['potencial'](altura):.1f} kg | exponencial: {modelos['exponencial'](altura):.1f} kg")
+    print(f"Altura {altura} cm -> lineal: {a + b * altura:.1f} kg | "
+          f"potencial: {a_pot * altura ** b_pot:.1f} kg | exponencial: {a_exp * np.exp(b_exp * altura):.1f} kg")
 
 # %% [markdown]
 # ⚠️ Para 230 cm los modelos ya no coinciden: estamos **extrapolando** fuera del rango observado (149–206 cm).
@@ -708,7 +762,7 @@ pd.DataFrame({
 # %% [markdown]
 # ### 🚀 Retos de la sesión 3
 # 1. Repite la regresión potencial peso ~ altura **solo con hombres** y **solo con mujeres**. ¿Sale el mismo exponente que con todos juntos? ¿Por qué?
-# 2. Ajusta los tres modelos para `Sprint Speed` frente a `Acceleration`. ¿Cuál gana?
+# 2. Ajusta los tres modelos para `Sprint Speed` frente a `Acceleration` (copia y adapta las celdas del apartado 11.3). ¿Cuál gana?
 # 3. ¿Qué pareja de las seis medias (`PAC`…`PHY`) tiene la correlación más alta en los jugadores de campo? Calcula su recta de regresión e interpreta la pendiente.
 # 4. Calcula las dos rectas de regresión de `OVR` y `Reactions`. ¿Cuánto vale el producto de sus pendientes? ¿Por qué?
 #

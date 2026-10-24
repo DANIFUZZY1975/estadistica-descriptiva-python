@@ -34,7 +34,7 @@
 # Antes de calcular nada: **¿cuántas filas, qué columnas, de qué tipo, hay huecos?**
 
 # %%
-df = cargar("world-happiness-report-2021.csv")
+df = pd.read_csv(URL_DATOS + "world-happiness-report-2021.csv")
 print("Dimensiones:", df.shape)
 df.head()
 
@@ -101,7 +101,6 @@ x = df["felicidad"]
 print(f"Media              : {x.mean():.3f}")
 print(f"Mediana            : {x.median():.3f}")
 print(f"Moda (x.mode())    : {x.mode().tolist()[:5]} ...  ({x.mode().size} valores!)")
-print(f"Moda (interpolada) : {moda(x):.3f}")
 print(f"Media recortada 5% : {stats.trim_mean(x, 0.05):.3f}")
 
 # %% [markdown]
@@ -119,9 +118,10 @@ print(f"Media recortada 5% : {stats.trim_mean(x, 0.05):.3f}")
 # %%
 frec, bordes = np.histogram(x, bins="sturges")
 i = frec.argmax()
-L, a = bordes[i], bordes[i + 1] - bordes[i]
+L, a = bordes[i], bordes[i + 1] - bordes[i]          # extremo inferior y amplitud de la clase modal
 n_izq, n_mod, n_der = frec[i - 1], frec[i], frec[i + 1]
-Mo = moda(x)
+d1, d2 = n_mod - n_izq, n_mod - n_der
+Mo = L + d1 / (d1 + d2) * a
 print(f"Clase modal: [{L:.3f}, {L + a:.3f})  con n_i = {n_mod}  (izquierda: {n_izq}, derecha: {n_der})")
 print(f"d1 = {n_mod - n_izq},  d2 = {n_mod - n_der}  ->  Mo = {L:.3f} + {n_mod - n_izq}/{(n_mod - n_izq) + (n_mod - n_der)} · {a:.3f} = {Mo:.3f}")
 
@@ -144,8 +144,12 @@ plt.show()
 # Cambia `bins="sturges"` por `bins=6` o `bins=15`: **la moda de una continua depende de cómo agrupemos**.
 
 # %%
-histograma_con_centros(df["felicidad"], "Felicidad (Ladder score) de 149 países")
-plt.xlabel("Puntuación 0-10"); plt.show()
+sns.histplot(x, bins="sturges", kde=True, color=AZUL, alpha=0.35)
+plt.axvline(x.mean(), color="#333333", ls="-", lw=2, label=f"media = {x.mean():.2f}")
+plt.axvline(x.median(), color="#333333", ls="--", lw=2, label=f"mediana = {x.median():.2f}")
+plt.axvline(Mo, color="#333333", ls=":", lw=2, label=f"moda = {Mo:.2f}")
+plt.title("Felicidad (Ladder score) de 149 países"); plt.xlabel("Puntuación 0-10"); plt.legend(frameon=False)
+plt.show()
 
 # %% [markdown]
 # ### Cuantiles, deciles y percentiles
@@ -159,20 +163,17 @@ print(df["felicidad"].quantile([0.10, 0.25, 0.50, 0.75, 0.90]).round(3))
 # z indica **a cuántas desviaciones típicas** de la media está un país. Sirve para comparar variables con unidades distintas.
 
 # %%
-def ficha_pais(nombre):
-    fila = df.loc[df["pais"] == nombre].iloc[0]
-    tabla = []
-    for v in ["felicidad", "PIB_pc", "apoyo_social", "esperanza_vida", "libertad", "generosidad", "corrupcion"]:
-        z = (fila[v] - df[v].mean()) / df[v].std()
-        pct = stats.percentileofscore(df[v], fila[v])
-        tabla.append({"variable": v, "valor": fila[v], "z": z, "percentil": pct})
-    return pd.DataFrame(tabla).set_index("variable")
-
-ficha_pais("Spain")
+pais = "Spain"          # 👈 cambia el país: "Finland", "Mexico", "Japan"...
+fila = df[df["pais"] == pais].iloc[0]
+print(pais)
+for v in ["felicidad", "PIB_pc", "apoyo_social", "esperanza_vida", "libertad", "generosidad", "corrupcion"]:
+    z = (fila[v] - df[v].mean()) / df[v].std()
+    percentil = 100 * (df[v] <= fila[v]).mean()        # % de países con un valor menor o igual
+    print(f"{v:15s} valor = {fila[v]:10.3f}   z = {z:+.2f}   percentil = {percentil:5.1f}")
 
 # %% [markdown]
-# 🤔 España está en el percentil 98 de esperanza de vida… pero por debajo de la mitad en libertad percibida. Prueba con tu país favorito:
-# `ficha_pais("Finland")`, `ficha_pais("Mexico")`, `ficha_pais("Japan")`...
+# 🤔 España está en el percentil 98 de esperanza de vida… pero por debajo de la mitad en libertad percibida.
+# Cambia `pais` por tu país favorito y vuelve a ejecutar la celda.
 
 # %% [markdown]
 # ## 4. Medidas de dispersión: ¿son los países parecidos entre sí?
@@ -212,7 +213,10 @@ plt.show()
 # %%
 fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 for ax, v, col in zip(axes, ["PIB_pc", "log_PIB", "esperanza_vida"], [AZUL, VERDE, NARANJA]):
-    histograma_con_centros(df[v], f"{v}  (asimetría = {df[v].skew():.2f})", ax=ax, color=col)
+    sns.histplot(df[v], bins="sturges", kde=True, color=col, alpha=0.35, ax=ax)
+    ax.axvline(df[v].mean(), color="#333333", ls="-", lw=2, label=f"media = {df[v].mean():,.1f}")
+    ax.axvline(df[v].median(), color="#333333", ls="--", lw=2, label=f"mediana = {df[v].median():,.1f}")
+    ax.set_title(f"{v}  (asimetría = {df[v].skew():.2f})"); ax.legend(frameon=False, fontsize=8)
 plt.tight_layout(); plt.show()
 
 # %% [markdown]
@@ -221,9 +225,9 @@ plt.tight_layout(); plt.show()
 
 # %% [markdown]
 # ### 🚀 Retos de la sesión 1
-# 1. Usa `ficha_pais()` con tres países que elijas. ¿En qué variable destaca cada uno (mayor |z|)?
-# 2. Calcula la moda interpolada de `felicidad` con `moda(df['felicidad'], bins=6)`, con Sturges y con `bins=15`. ¿Cuánto cambia?
-# 3. ¿Qué variable es más asimétrica: `generosidad` o `corrupcion`? Dibújalas con `histograma_con_centros` y comprueba si media y mediana se separan como esperas.
+# 1. Ejecuta la ficha de país con tres países que elijas. ¿En qué variable destaca cada uno (mayor |z|)?
+# 2. Repite el cálculo de la moda interpolada de `felicidad` con `np.histogram(x, bins=6)` y con `bins=15`. ¿Cuánto cambia respecto a Sturges?
+# 3. ¿Qué variable es más asimétrica: `generosidad` o `corrupcion`? Dibuja sus histogramas con la media y la mediana marcadas y comprueba si se separan como esperas.
 #
 # ---
 # ✅ **Fin de la sesión 1.**
@@ -239,8 +243,13 @@ plt.tight_layout(); plt.show()
 # ## 6. Tabla resumen de TODAS las variables cuantitativas
 
 # %%
-tabla = df[cuantitativas].apply(resumen).T
-tabla.style.format("{:,.2f}").background_gradient(subset=["asimetria_Fisher"], cmap="RdBu_r", vmin=-2, vmax=2)
+tabla = df[cuantitativas].agg(["count", "mean", "median", "min", "max", "var", "std", "skew", "kurt"]).T
+tabla["Q1"] = df[cuantitativas].quantile(0.25)
+tabla["Q3"] = df[cuantitativas].quantile(0.75)
+tabla["rango"] = tabla["max"] - tabla["min"]
+tabla["IQR"] = tabla["Q3"] - tabla["Q1"]
+tabla["CV_%"] = 100 * tabla["std"] / tabla["mean"].abs()
+tabla.style.format("{:,.2f}").background_gradient(subset=["skew"], cmap="RdBu_r", vmin=-2, vmax=2)
 
 # %% [markdown]
 # ## 7. Datos anómalos (atípicos)
@@ -256,7 +265,9 @@ plt.tight_layout(); plt.show()
 
 # %%
 for v in ["felicidad", "apoyo_social", "corrupcion", "esperanza_vida"]:
-    li, ls = limites_tukey(df[v])
+    q1, q3 = df[v].quantile(0.25), df[v].quantile(0.75)
+    iqr = q3 - q1
+    li, ls = q1 - 1.5 * iqr, q3 + 1.5 * iqr
     at = df.loc[(df[v] < li) | (df[v] > ls), ["pais", "region", v]]
     print(f"\n--- {v}: vallas [{li:.2f}, {ls:.2f}] -> {len(at)} atípicos")
     print(at.to_string(index=False))
@@ -334,7 +345,7 @@ plt.ylabel(""); plt.show()
 
 # %% [markdown]
 # ### 🚀 Retos de la sesión 2
-# 1. Calcula la tabla de `resumen()` **por región** para `esperanza_vida`: `df.groupby("region")["esperanza_vida"].apply(resumen).unstack()`.
+# 1. Calcula media, mediana, desviación típica, IQR y asimetría de `esperanza_vida` **por región** con `df.groupby("region")["esperanza_vida"].agg([...])`.
 # 2. Crea una variable cualitativa ordinal `nivel_felicidad` con `pd.cut` (baja / media / alta) y haz una tabla de contingencia con `region` (`pd.crosstab(..., normalize="index")`).
 # 3. ¿Qué país europeo es el más "anómalo" según su residuo? ¿Y el latinoamericano?
 # 4. Repite el análisis de atípicos con z-scores ( |z| > 2.5 ). ¿Salen los mismos países que con Tukey?
@@ -404,14 +415,39 @@ for a_ in axes: a_.set_xlabel("");
 plt.tight_layout(); plt.show()
 
 # %%
-tabla_reg, modelos = regresiones(df["PIB_pc"], df["esperanza_vida"])
-tabla_reg
+x, y = df["PIB_pc"], df["esperanza_vida"]
+lx, ly = np.log(x), np.log(y)
+
+# --- Lineal: y = a + b·x
+b_lin = ((x - x.mean()) * (y - y.mean())).mean() / ((x - x.mean()) ** 2).mean()
+a_lin = y.mean() - b_lin * x.mean()
+pred_lin = a_lin + b_lin * x
+
+# --- Potencial: ln y = ln a + b·ln x
+b_pot = ((lx - lx.mean()) * (ly - ly.mean())).mean() / ((lx - lx.mean()) ** 2).mean()
+a_pot = np.exp(ly.mean() - b_pot * lx.mean())
+pred_pot = a_pot * x ** b_pot
+
+# --- Exponencial: ln y = ln a + b·x
+b_exp = ((x - x.mean()) * (ly - ly.mean())).mean() / ((x - x.mean()) ** 2).mean()
+a_exp = np.exp(ly.mean() - b_exp * x.mean())
+pred_exp = a_exp * np.exp(b_exp * x)
+
+# --- R² en la escala original
+SC_total = ((y - y.mean()) ** 2).sum()
+print(f"Lineal      : y = {a_lin:.3f} + {b_lin:.3e}·x        R² = {1 - ((y - pred_lin) ** 2).sum() / SC_total:.3f}")
+print(f"Potencial   : y = {a_pot:.3f}·x^{b_pot:.4f}          R² = {1 - ((y - pred_pot) ** 2).sum() / SC_total:.3f}")
+print(f"Exponencial : y = {a_exp:.3f}·e^({b_exp:.3e}·x)   R² = {1 - ((y - pred_exp) ** 2).sum() / SC_total:.3f}")
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 5.5))
-dibujar_regresiones(df["PIB_pc"], df["esperanza_vida"], modelos, ax=ax,
-                    xlabel="PIB per cápita ($)", ylabel="Esperanza de vida saludable (años)",
-                    titulo="Esperanza de vida según el PIB: tres modelos")
+xs = np.linspace(x.min(), x.max(), 300)
+plt.figure(figsize=(10, 5.5))
+plt.scatter(x, y, s=20, alpha=0.5, color="#9aa0a6")
+plt.plot(xs, a_lin + b_lin * xs, color=AZUL, lw=2.5, label="lineal")
+plt.plot(xs, a_pot * xs ** b_pot, color=NARANJA, lw=2.5, label="potencial")
+plt.plot(xs, a_exp * np.exp(b_exp * xs), color=VERDE, lw=2.5, label="exponencial")
+plt.xlabel("PIB per cápita ($)"); plt.ylabel("Esperanza de vida saludable (años)")
+plt.title("Esperanza de vida según el PIB: tres modelos"); plt.legend(frameon=False)
 plt.show()
 
 # %% [markdown]
@@ -419,10 +455,9 @@ plt.show()
 # Si el PIB se multiplica por 2, la esperanza de vida se multiplica por $2^{b}$. Calcúlalo:
 
 # %%
-b_pot = tabla_reg.loc["potencial", "b"]
 print(f"Duplicar el PIB multiplica la esperanza de vida por 2^{b_pot:.4f} = {2**b_pot:.4f}  (+{100*(2**b_pot - 1):.1f} %)")
 for pib in [2000, 4000, 30000, 60000]:
-    print(f"PIB {pib:>6,} $ -> esperanza de vida (potencial) {modelos['potencial'](pib):.1f} años")
+    print(f"PIB {pib:>6,} $ -> esperanza de vida (potencial) {a_pot * pib ** b_pot:.1f} años")
 
 # %% [markdown]
 # 🤔 Pasar de 2.000 a 4.000 $ "da" muchos más años que pasar de 30.000 a 60.000 $, aunque en ambos casos el PIB se duplica.
@@ -431,29 +466,57 @@ for pib in [2000, 4000, 30000, 60000]:
 # ### Residuos: ¿quién vive más (o menos) de lo que "le toca" por su PIB?
 
 # %%
-df["residuo_vida"] = df["esperanza_vida"] - modelos["potencial"](df["PIB_pc"])
+df["residuo_vida"] = df["esperanza_vida"] - a_pot * df["PIB_pc"] ** b_pot
 extremos_vida = pd.concat([df.nlargest(5, "residuo_vida"), df.nsmallest(5, "residuo_vida")])
 extremos_vida[["pais", "region", "PIB_pc", "esperanza_vida", "residuo_vida"]].round(1)
 
 # %%
 fila = df.loc[df["pais"] == "Spain"].iloc[0]
-print(f"España: PIB {fila['PIB_pc']:,.0f} $ -> el modelo predice {modelos['potencial'](fila['PIB_pc']):.1f} años; "
+print(f"España: PIB {fila['PIB_pc']:,.0f} $ -> el modelo predice {a_pot * fila['PIB_pc'] ** b_pot:.1f} años; "
       f"tiene {fila['esperanza_vida']:.1f} (residuo {fila['residuo_vida']:+.1f})")
 
 # %% [markdown]
 # ### ¿Y la felicidad?
 
+# %% [markdown]
+# Repetimos los mismos pasos con la felicidad como $y$. Esta vez calculamos **dos** $R^2$ para los modelos con logaritmos:
+# el de la recta ajustada a $\ln y$ (**escala del ajuste**) y el de las predicciones de $y$ (**escala original**).
+
 # %%
-tabla_f, modelos_f = regresiones(df["PIB_pc"], df["felicidad"])
-display(tabla_f)
-dibujar_regresiones(df["PIB_pc"], df["felicidad"], modelos_f, xlabel="PIB per cápita ($)", ylabel="Felicidad (0-10)",
-                    titulo="Felicidad según el PIB: tres modelos")
-plt.show()
+x, y = df["PIB_pc"], df["felicidad"]
+lx, ly = np.log(x), np.log(y)
+
+b_lin = ((x - x.mean()) * (y - y.mean())).mean() / ((x - x.mean()) ** 2).mean()
+a_lin = y.mean() - b_lin * x.mean()
+b_pot = ((lx - lx.mean()) * (ly - ly.mean())).mean() / ((lx - lx.mean()) ** 2).mean()
+A_pot = ly.mean() - b_pot * lx.mean()
+b_exp = ((x - x.mean()) * (ly - ly.mean())).mean() / ((x - x.mean()) ** 2).mean()
+A_exp = ly.mean() - b_exp * x.mean()
+
+SC_total = ((y - y.mean()) ** 2).sum()
+SC_total_log = ((ly - ly.mean()) ** 2).sum()
+r2_lin = 1 - ((y - (a_lin + b_lin * x)) ** 2).sum() / SC_total
+r2_pot_log = 1 - ((ly - (A_pot + b_pot * lx)) ** 2).sum() / SC_total_log
+r2_pot = 1 - ((y - np.exp(A_pot) * x ** b_pot) ** 2).sum() / SC_total
+r2_exp_log = 1 - ((ly - (A_exp + b_exp * x)) ** 2).sum() / SC_total_log
+r2_exp = 1 - ((y - np.exp(A_exp) * np.exp(b_exp * x)) ** 2).sum() / SC_total
+print(f"Lineal      : R² = {r2_lin:.3f}")
+print(f"Potencial   : R² escala del ajuste (ln y) = {r2_pot_log:.3f} | R² escala original = {r2_pot:.3f}")
+print(f"Exponencial : R² escala del ajuste (ln y) = {r2_exp_log:.3f} | R² escala original = {r2_exp:.3f}")
+
+xs = np.linspace(x.min(), x.max(), 300)
+plt.figure(figsize=(10, 5))
+plt.scatter(x, y, s=20, alpha=0.5, color="#9aa0a6")
+plt.plot(xs, a_lin + b_lin * xs, color=AZUL, lw=2.5, label="lineal")
+plt.plot(xs, np.exp(A_pot) * xs ** b_pot, color=NARANJA, lw=2.5, label="potencial")
+plt.plot(xs, np.exp(A_exp) * np.exp(b_exp * xs), color=VERDE, lw=2.5, label="exponencial")
+plt.xlabel("PIB per cápita ($)"); plt.ylabel("Felicidad (0-10)"); plt.title("Felicidad según el PIB: tres modelos")
+plt.legend(frameon=False); plt.show()
 
 # %% [markdown]
-# ⚠️ **Cuidado al comparar los $R^2$.** La tabla da dos: el de la **escala del ajuste** (el de la recta sobre los logaritmos)
-# y el de la **escala original** (cuánto se acercan las predicciones a los datos de verdad). Para elegir modelo hay que usar
-# el de la escala original: los otros miden errores en "logaritmos de años", no en años.
+# ⚠️ **Cuidado al comparar los $R^2$.** El de la **escala del ajuste** mide qué tal se ajusta la recta a los logaritmos;
+# el de la **escala original**, cuánto se acercan las predicciones a los datos de verdad. Para elegir modelo hay que usar
+# el de la escala original: el otro mide errores en "logaritmos de puntos de felicidad", no en puntos.
 
 # %% [markdown]
 # ## 11. ¿Se parece a una normal? Regla empírica vs. desigualdad de Chebyshev
@@ -461,17 +524,12 @@ plt.show()
 # - Chebyshev (vale para **cualquier** distribución): al menos $1 - 1/k^2$ en $\bar x \pm ks$.
 
 # %%
-def regla_empirica(x):
-    x = pd.Series(x).dropna(); m, s = x.mean(), x.std()
-    return pd.DataFrame({
-        "k": [1, 2, 3],
-        "observado_%": [100 * x.between(m - k*s, m + k*s).mean() for k in (1, 2, 3)],
-        "normal_%": [68.27, 95.45, 99.73],
-        "Chebyshev_min_%": [0, 75, 88.9],
-    }).set_index("k")
-
-print("Felicidad:"); print(regla_empirica(df["felicidad"]))
-print("\nPIB per cápita (muy asimétrico):"); print(regla_empirica(df["PIB_pc"]))
+for v in ["felicidad", "PIB_pc"]:
+    m, s = df[v].mean(), df[v].std()
+    print(f"\n{v}:   (normal: 68.3 / 95.4 / 99.7 %   ·   Chebyshev: al menos 0 / 75 / 88.9 %)")
+    for k in [1, 2, 3]:
+        dentro = df[v].between(m - k * s, m + k * s).mean()
+        print(f"  dentro de media ± {k}·s: {100 * dentro:.1f} %")
 
 # %% [markdown]
 # ### 🚀 Retos de la sesión 3

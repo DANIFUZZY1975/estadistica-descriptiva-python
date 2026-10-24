@@ -34,7 +34,7 @@
 # ## 1. Primer vistazo (y primeros sustos)
 
 # %%
-df = cargar("music_genre.csv")
+df = pd.read_csv(URL_DATOS + "music_genre.csv")
 print("Dimensiones:", df.shape)
 df.head()
 
@@ -71,7 +71,7 @@ df.isna().sum()[lambda s: s > 0]
 # ### ¿Cuánto cambia la media si NO limpiamos?
 
 # %%
-crudo = cargar("music_genre.csv").dropna(how="all")
+crudo = pd.read_csv(URL_DATOS + "music_genre.csv").dropna(how="all")
 print(f"Duración media SIN limpiar : {crudo['duration_ms'].mean() / 60000:.3f} min")
 print(f"Duración media limpiando   : {df['duracion_min'].mean():.3f} min")
 print(f"Mediana SIN limpiar        : {crudo['duration_ms'].median() / 60000:.3f} min")
@@ -171,8 +171,12 @@ print("Cuartiles:", x.quantile([.25, .5, .75]).tolist())
 print("Percentil 99 (el 1 % más popular empieza en):", x.quantile(.99))
 
 # %%
-histograma_con_centros(df["popularity"], "Popularidad de 50.000 canciones", bins=range(0, 101, 2))
-plt.xlabel("popularity (0-100)"); plt.show()
+sns.histplot(x, bins=range(0, 101, 2), kde=True, color=AZUL, alpha=0.35)
+plt.axvline(x.mean(), color="#333333", ls="-", lw=2, label=f"media = {x.mean():.2f}")
+plt.axvline(x.median(), color="#333333", ls="--", lw=2, label=f"mediana = {x.median():.2f}")
+plt.axvline(x.mode()[0], color="#333333", ls=":", lw=2, label=f"moda = {x.mode()[0]:.0f}")
+plt.title("Popularidad de 50.000 canciones"); plt.xlabel("popularity (0-100)"); plt.legend(frameon=False)
+plt.show()
 
 # %% [markdown]
 # 🤔 ¿Ves el **pico en 0**? ¿Son canciones que nadie escucha… o un dato faltante disfrazado? Ahora lo investigamos por género.
@@ -214,10 +218,18 @@ plt.tight_layout(); plt.show()
 # - `duracion_min`: asimetría enorme por unas pocas "canciones" larguísimas.
 
 # %%
-tabla = df[cuantitativas].apply(resumen).T
+datos = df[cuantitativas]
+tabla = datos.agg(["count", "mean", "median", "min", "max", "std", "skew", "kurt"]).T
+tabla["Q1"] = datos.quantile(0.25)
+tabla["Q3"] = datos.quantile(0.75)
+tabla["IQR"] = tabla["Q3"] - tabla["Q1"]
+tabla["MAD"] = (datos - datos.median()).abs().median()           # mediana de |x - mediana|
+li = tabla["Q1"] - 1.5 * tabla["IQR"]                            # vallas de Tukey de cada columna
+ls = tabla["Q3"] + 1.5 * tabla["IQR"]
+tabla["atipicos_Tukey"] = (datos.lt(li) | datos.gt(ls)).sum()
 (tabla.style.format("{:,.3f}")
-     .background_gradient(subset=["asimetria_Fisher"], cmap="RdBu_r", vmin=-3, vmax=3)
-     .background_gradient(subset=["n_atipicos_Tukey"], cmap="Oranges"))
+     .background_gradient(subset=["skew"], cmap="RdBu_r", vmin=-3, vmax=3)
+     .background_gradient(subset=["atipicos_Tukey"], cmap="Oranges"))
 
 # %% [markdown]
 # 🤔 Comparad `media` y `mediana` en `instrumentalness`: 0.18 frente a casi 0. **¿Qué medida describe mejor una canción "típica"?**
@@ -227,7 +239,9 @@ tabla = df[cuantitativas].apply(resumen).T
 # ## 6. Atípicos: ¿canciones de 80 minutos?
 
 # %%
-li, ls = limites_tukey(df["duracion_min"])
+q1, q3 = df["duracion_min"].quantile(0.25), df["duracion_min"].quantile(0.75)
+iqr = q3 - q1
+li, ls = q1 - 1.5 * iqr, q3 + 1.5 * iqr
 atip = df[df["duracion_min"] > ls]
 print(f"Vallas de Tukey: [{li:.2f}, {ls:.2f}] minutos -> {len(atip)} atípicos por arriba ({100*len(atip)/df['duracion_min'].notna().sum():.1f} %)")
 df.nlargest(8, "duracion_min")[["artist_name", "track_name", "music_genre", "duracion_min"]]
@@ -251,7 +265,8 @@ plt.tight_layout(); plt.show()
 comparacion = []
 for v in ["duracion_min", "speechiness", "liveness", "loudness", "tempo"]:
     s = df[v].dropna()
-    li, ls = limites_tukey(s)
+    q1, q3 = s.quantile(0.25), s.quantile(0.75)
+    li, ls = q1 - 1.5 * (q3 - q1), q3 + 1.5 * (q3 - q1)
     z = (s - s.mean()) / s.std()
     comparacion.append({"variable": v, "Tukey_1.5IQR": ((s < li) | (s > ls)).sum(), "|z|>3": (z.abs() > 3).sum()})
 pd.DataFrame(comparacion).set_index("variable")
@@ -369,25 +384,45 @@ print("energy  : mínimo", df["energy"].min(), " máximo", df["energy"].max())
 # **el modelo potencial no se puede ajustar**. Antes de elegir un modelo, hay que mirar el **dominio** de las variables.
 
 # %%
-tabla_reg, modelos = regresiones(df["loudness"], df["energy"])
-tabla_reg
+x, y = df["loudness"], df["energy"]
+ly = np.log(y)
+
+# --- Lineal: y = a + b·x
+b_lin = ((x - x.mean()) * (y - y.mean())).mean() / ((x - x.mean()) ** 2).mean()
+a_lin = y.mean() - b_lin * x.mean()
+
+# --- Exponencial: ln y = A + b·x  ->  y = e^A · e^(b·x)
+b_exp = ((x - x.mean()) * (ly - ly.mean())).mean() / ((x - x.mean()) ** 2).mean()
+A_exp = ly.mean() - b_exp * x.mean()
+a_exp = np.exp(A_exp)
+
+# --- R²: el de la escala del ajuste (recta sobre ln y) y el de la escala original (predicción de y)
+SC_total, SC_total_log = ((y - y.mean()) ** 2).sum(), ((ly - ly.mean()) ** 2).sum()
+r2_lin = 1 - ((y - (a_lin + b_lin * x)) ** 2).sum() / SC_total
+r2_exp_log = 1 - ((ly - (A_exp + b_exp * x)) ** 2).sum() / SC_total_log
+r2_exp = 1 - ((y - a_exp * np.exp(b_exp * x)) ** 2).sum() / SC_total
+print(f"Lineal      : energy = {a_lin:.4f} + {b_lin:.5f}·loudness        R² = {r2_lin:.3f}")
+print(f"Exponencial : energy = {a_exp:.4f}·e^({b_exp:.5f}·loudness)    R² escala del ajuste = {r2_exp_log:.3f} | R² escala original = {r2_exp:.3f}")
+print("Potencial   : no aplicable (loudness tiene valores ≤ 0 y no existe su logaritmo)")
 
 # %%
 fig, axes = plt.subplots(1, 2, figsize=(16, 5))
-dibujar_regresiones(df["loudness"], df["energy"], modelos, ax=axes[0],
-                    xlabel="loudness (dB)", ylabel="energy", titulo="Escala original")
 m = df[["loudness", "energy"]].dropna().sample(3000, random_state=1)
+xs = np.linspace(x.min(), x.max(), 300)
+axes[0].scatter(m["loudness"], m["energy"], s=10, alpha=0.3, color="#9aa0a6")
+axes[0].plot(xs, a_lin + b_lin * xs, color=AZUL, lw=2.5, label="lineal")
+axes[0].plot(xs, a_exp * np.exp(b_exp * xs), color=VERDE, lw=2.5, label="exponencial")
+axes[0].set_xlabel("loudness (dB)"); axes[0].set_ylabel("energy"); axes[0].set_title("Escala original")
+axes[0].legend(frameon=False)
 axes[1].scatter(m["loudness"], np.log(m["energy"]), s=10, alpha=0.3, color="#9aa0a6")
-A, B = recta_minimos_cuadrados(df["loudness"], np.log(df["energy"]))
-xs = np.linspace(df["loudness"].min(), df["loudness"].max(), 100)
-axes[1].plot(xs, A + B * xs, color=VERDE, lw=2.5, label="recta sobre ln(energy)")
+axes[1].plot(xs, A_exp + b_exp * xs, color=VERDE, lw=2.5, label="recta sobre ln(energy)")
 axes[1].set_xlabel("loudness (dB)"); axes[1].set_ylabel("ln(energy)"); axes[1].set_title("Escala semilogarítmica")
 axes[1].legend(frameon=False)
 plt.tight_layout(); plt.show()
 
 # %% [markdown]
 # ### ⚠️ La trampa del $R^2$ en escala logarítmica
-# Mira las dos columnas de $R^2$ de la tabla:
+# Mira los dos $R^2$ del modelo exponencial:
 # - En **su escala** (recta sobre $\ln y$), el exponencial tiene un $R^2$ **mayor** que el lineal.
 # - En la **escala original** (predicción de la energía de verdad), el exponencial es **peor** que el lineal.
 #
@@ -396,9 +431,8 @@ plt.tight_layout(); plt.show()
 # (canciones muy tranquilas) y el ajuste se esfuerza en acertar sobre todo ahí.
 
 # %%
-print(f"Canción a -5 dB (pop actual) : lineal {modelos['lineal'](-5):.3f} | exponencial {modelos['exponencial'](-5):.3f}")
-print(f"Canción a -30 dB (clásica)   : lineal {modelos['lineal'](-30):.3f} | exponencial {modelos['exponencial'](-30):.3f}")
-print(f"Canción a -45 dB             : lineal {modelos['lineal'](-45):.3f} | exponencial {modelos['exponencial'](-45):.3f}")
+for db in [-5, -30, -45]:
+    print(f"Canción a {db} dB : lineal {a_lin + b_lin * db:.3f} | exponencial {a_exp * np.exp(b_exp * db):.3f}")
 
 # %% [markdown]
 # 🤔 ¿Qué modelo predice una energía **negativa** para canciones muy bajitas? La energía va de 0 a 1… **la recta no sabe que hay un suelo**.
@@ -411,11 +445,17 @@ print(f"Canción a -45 dB             : lineal {modelos['lineal'](-45):.3f} | ex
 # %%
 por_genero = []
 for genero, g in df.groupby("music_genre"):
-    t, _ = regresiones(g["loudness"], g["energy"])
+    x, y = g["loudness"], g["energy"]
+    ly = np.log(y)
+    b_lin = ((x - x.mean()) * (y - y.mean())).mean() / ((x - x.mean()) ** 2).mean()
+    a_lin = y.mean() - b_lin * x.mean()
+    b_exp = ((x - x.mean()) * (ly - ly.mean())).mean() / ((x - x.mean()) ** 2).mean()
+    a_exp = np.exp(ly.mean() - b_exp * x.mean())
+    SC_total = ((y - y.mean()) ** 2).sum()
     por_genero.append({"genero": genero, "n": len(g),
-                       "pendiente_lineal": t.loc["lineal", "b"],
-                       "R2_lineal": t.loc["lineal", "R2 (escala original)"],
-                       "R2_exponencial": t.loc["exponencial", "R2 (escala original)"]})
+                       "pendiente_lineal": b_lin,
+                       "R2_lineal": 1 - ((y - (a_lin + b_lin * x)) ** 2).sum() / SC_total,
+                       "R2_exponencial": 1 - ((y - a_exp * np.exp(b_exp * x)) ** 2).sum() / SC_total})
 pd.DataFrame(por_genero).set_index("genero").sort_values("R2_lineal", ascending=False).round(3)
 
 # %% [markdown]
@@ -440,7 +480,7 @@ pd.crosstab(dup["music_genre"], "repeticiones").sort_values("repeticiones", asce
 # %% [markdown]
 # ### 🚀 Retos de la sesión 3
 # 1. Ajusta los tres modelos para `acousticness` frente a `energy`. ¿Por qué falla el potencial? (pista: busca valores exactamente 0)
-# 2. Repite la regresión `energy` ~ `loudness` **solo para Classical** y dibuja los dos modelos con `dibujar_regresiones`. ¿Por qué ahí gana el exponencial?
+# 2. Repite la regresión `energy` ~ `loudness` **solo para Classical** y dibuja los dos modelos (copia y adapta las celdas de este apartado). ¿Por qué ahí gana el exponencial?
 # 3. ¿Qué pareja de rasgos de audio tiene la correlación negativa más fuerte? Ajusta su recta e interpreta la pendiente.
 #
 # ---
