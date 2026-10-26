@@ -17,7 +17,7 @@
 # **Plan de trabajo (3 sesiones de 2 h):**
 # - 🕐 Sesión 1 · Describir una variable (apartados 1–5)
 # - 🕐 Sesión 2 · Atípicos y comparación de grupos (6–8)
-# - 🕐 Sesión 3 · Dos variables: correlación y regresión (9–11)
+# - 🕐 Sesión 3 · Dos variables: correlación, ¿de qué depende la felicidad? y regresión (9–12)
 
 # %%
 # (el bloque de configuración común se inserta aquí)
@@ -355,9 +355,9 @@ plt.ylabel(""); plt.show()
 
 # %% [markdown]
 # ---
-# # 🕐 Sesión 3 de 3 · Dos variables: correlación y regresión
-# **Objetivos:** covarianza y correlación, regresión lineal, potencial y exponencial, elasticidad, residuos, regla empírica y Chebyshev.  
-# **Apartados:** 9 a 11 · **Duración orientativa:** 2 horas
+# # 🕐 Sesión 3 de 3 · Dos variables: correlación, ¿de qué depende la felicidad? y regresión
+# **Objetivos:** covarianza y correlación, qué variables van unidas a la felicidad (y sus cautelas), regresión lineal, potencial y exponencial, elasticidad, residuos, regla empírica y Chebyshev.  
+# **Apartados:** 9 a 12 · **Duración orientativa:** 2 horas
 # > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
 
 # %% [markdown]
@@ -381,7 +381,122 @@ print("Correlación felicidad–log_PIB        :", round(df["felicidad"].corr(df
 # (pista: unidades). Y recordad: **correlación no implica causalidad**.
 
 # %% [markdown]
-# ## 10. 📈 Regresión: ¿cuántos años de vida "compra" el dinero?
+# ## 10. 🤔 ¿De qué depende la felicidad?
+# Tenemos seis posibles "ingredientes" de la felicidad de un país. ¿Cuál va más unido a ella?
+# Para cada uno calculamos la correlación $r$ con la felicidad y su $R^2 = r^2$
+# (qué parte de las diferencias de felicidad entre países explicaría una recta con esa variable sola).
+
+# %%
+explicativas = ["log_PIB", "apoyo_social", "esperanza_vida", "libertad", "generosidad", "corrupcion"]
+tabla_r = pd.DataFrame({
+    "r": [df["felicidad"].corr(df[v]) for v in explicativas],
+}, index=explicativas)
+tabla_r["R2"] = tabla_r["r"] ** 2
+tabla_r = tabla_r.sort_values("R2", ascending=False)
+tabla_r.round(3)
+
+# %%
+fig, ax = plt.subplots(figsize=(9, 4))
+colores = np.where(tabla_r["r"] > 0, AZUL, NARANJA)
+ax.barh(tabla_r.index[::-1], tabla_r["r"][::-1], color=colores[::-1])
+ax.axvline(0, color="#333333", lw=1)
+for i, r in enumerate(tabla_r["r"][::-1]):
+    ax.text(r + (0.02 if r >= 0 else -0.02), i, f"{r:.2f}", va="center", ha="left" if r >= 0 else "right")
+ax.set_xlim(-0.6, 1); ax.set_xlabel("correlación con la felicidad (r)")
+ax.set_title("¿Qué variable va más unida a la felicidad?")
+plt.show()
+
+# %% [markdown]
+# Primer resultado: **riqueza, salud y apoyo social** (tener a alguien en quien confiar si tienes problemas) van muy unidas
+# a la felicidad, con $r \approx 0{,}76$–$0{,}79$. Después, la **libertad**. La **generosidad**, nada ($r \approx 0$).
+# Y la **corrupción** percibida, en sentido contrario: más corrupción, menos felicidad.
+#
+# Veamos todas las relaciones a la vez con una **matriz de dispersión**:
+
+# %%
+sns.pairplot(df[["felicidad"] + explicativas], corner=True, height=1.7,
+             plot_kws={"s": 12, "alpha": 0.6, "color": AZUL}, diag_kws={"color": AZUL})
+plt.suptitle("Matriz de dispersión: felicidad y sus seis posibles causas", y=1.02, fontweight="bold")
+plt.show()
+
+# %% [markdown]
+# ### ⚠️ Cautela 1: las explicativas van juntas
+# Mira la matriz de correlaciones **entre las explicativas**:
+
+# %%
+corr_exp = df[explicativas].corr()
+mask = np.triu(np.ones_like(corr_exp, dtype=bool))
+plt.figure(figsize=(7, 5.5))
+sns.heatmap(corr_exp, mask=mask, annot=True, fmt=".2f", cmap="RdBu_r", center=0, vmin=-1, vmax=1, linewidths=2, linecolor="white")
+plt.title("Correlaciones entre las variables explicativas"); plt.show()
+
+# %% [markdown]
+# PIB, esperanza de vida y apoyo social están muy correladas **entre sí** ($r$ de 0,72 a 0,86): los países ricos son también
+# más sanos y tienen más redes de apoyo. Cada una por separado "explica" en torno al 60 % de la felicidad… pero **no podemos sumar**
+# esos porcentajes, porque en buena parte están explicando **lo mismo**. Comprobémoslo usando las seis a la vez
+# (esto es una **regresión múltiple**, que veréis más adelante; aquí solo nos interesa su $R^2$):
+
+# %%
+X = np.column_stack([np.ones(len(df))] + [df[v] for v in explicativas])   # columna de unos + las seis variables
+coef, *_ = np.linalg.lstsq(X, df["felicidad"], rcond=None)                 # mínimos cuadrados con varias x
+pred = X @ coef
+r2_multiple = 1 - ((df["felicidad"] - pred) ** 2).sum() / ((df["felicidad"] - df["felicidad"].mean()) ** 2).sum()
+print(f"R² con el PIB solo           : {df['felicidad'].corr(df['log_PIB']) ** 2:.3f}")
+print(f"Suma de los R² por separado  : {tabla_r['R2'].sum():.3f}   <- ¡más de 1! No tiene sentido sumarlos")
+print(f"R² con las seis a la vez     : {r2_multiple:.3f}")
+
+# %% [markdown]
+# 🤔 Con el PIB solo ya se explica un 62 %; añadiendo las otras cinco variables solo subimos hasta el 76 %.
+# **Con estos datos no se puede saber si lo que importa es el dinero, la salud o el apoyo social**, porque casi siempre van juntos.
+#
+# ### ⚠️ Cautela 2: correlación no es causalidad
+# Que el PIB y la felicidad vayan juntos no demuestra que el dinero dé la felicidad. Puede que haya **causas comunes**
+# (instituciones que funcionan, paz, educación…) que hagan a un país a la vez más rico y más feliz. O incluso que la causalidad vaya
+# en parte al revés: gente más feliz y confiada que trabaja y coopera mejor.
+#
+# ### ⚠️ Cautela 3: son medias de países, no personas
+# Que los países ricos sean más felices **no implica** que dentro de un país las personas ricas lo sean más (aunque pueda ocurrir).
+# Sacar conclusiones sobre individuos a partir de datos agregados por grupos se llama **falacia ecológica**.
+
+# %% [markdown]
+# ### El reparto que hacen los autores del informe
+# El fichero original trae unas columnas `Explained by: ...` en las que los autores reparten la puntuación de cada país entre los seis
+# ingredientes (según su propio modelo), más una parte `Dystopia + residual`: una base fija de 2,43 puntos igual para todos
+# (la de un país imaginario, "Distopía", con los peores valores del mundo en todo) más el residuo que su modelo no explica. Las recuperamos:
+
+# %%
+original = pd.read_csv(URL_DATOS + "world-happiness-report-2021.csv")
+columnas = {"Explained by: Log GDP per capita": "PIB", "Explained by: Social support": "apoyo social",
+            "Explained by: Healthy life expectancy": "esperanza de vida", "Explained by: Freedom to make life choices": "libertad",
+            "Explained by: Generosity": "generosidad", "Explained by: Perceptions of corruption": "corrupción",
+            "Dystopia + residual": "no explicado"}
+reparto = original.set_index("Country name")[list(columnas)].rename(columns=columnas)
+
+print("Aportación media de cada ingrediente (puntos de felicidad):")
+print(reparto.mean().round(2).to_string())
+
+# %%
+paises = ["Finland", "Spain", "Costa Rica", "Botswana", "Afghanistan"]   # 👈 cambia la lista si quieres
+colores_rep = ["#1c5cab", "#3987e5", "#86b6ef", "#1baf7a", "#eda100", "#e87ba4", "#cfcfcf"]
+ax = reparto.loc[paises].plot.barh(stacked=True, figsize=(11, 4.5), color=colores_rep, width=0.7, edgecolor="white")
+for i, p in enumerate(paises):
+    ax.text(reparto.loc[p].sum() + 0.05, i, f"{reparto.loc[p].sum():.2f}", va="center", fontweight="bold")
+ax.invert_yaxis(); ax.set_xlabel("puntuación de felicidad"); ax.set_ylabel("")
+ax.set_title("¿De dónde sale la felicidad de cada país? (reparto de los autores del informe)")
+ax.legend(frameon=False, ncol=4, loc="upper center", bbox_to_anchor=(0.5, -0.18))
+plt.tight_layout(); plt.show()
+
+# %% [markdown]
+# 🤔 **Preguntas:**
+# 1. Costa Rica y Finlandia tienen una parte "no explicada" muy grande: son **más felices de lo que predicen** sus seis ingredientes.
+#    ¿Y Botsuana?
+# 2. ¿En qué ingrediente se diferencian más España y Finlandia?
+# 3. Afganistán tiene **0** en apoyo social y en libertad. ¿Qué significa en este reparto?
+# 4. Casi la mitad de la puntuación media es "no explicada". ¿Qué otras cosas crees que pueden influir en la felicidad de un país
+#    y no están en el dataset?
+
+# %% [markdown]
+# ## 11. 📈 Regresión: ¿cuántos años de vida "compra" el dinero?
 # Explicamos la **esperanza de vida saludable** ($y$) a partir del **PIB per cápita** ($x$, en dólares) con tres modelos:
 #
 # | Modelo | Ecuación | Linealización |
@@ -519,7 +634,7 @@ plt.legend(frameon=False); plt.show()
 # el de la escala original: el otro mide errores en "logaritmos de puntos de felicidad", no en puntos.
 
 # %% [markdown]
-# ## 11. ¿Se parece a una normal? Regla empírica vs. desigualdad de Chebyshev
+# ## 12. ¿Se parece a una normal? Regla empírica vs. desigualdad de Chebyshev
 # - Normal: ~68 % de datos en $\bar x \pm s$, ~95 % en $\bar x \pm 2s$, ~99.7 % en $\bar x \pm 3s$.
 # - Chebyshev (vale para **cualquier** distribución): al menos $1 - 1/k^2$ en $\bar x \pm ks$.
 

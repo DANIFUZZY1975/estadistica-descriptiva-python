@@ -9,7 +9,7 @@ Se abren directamente en Google Colab: no hace falta instalar nada ni subir fich
 | Notebook | Datos | Preguntas | Abrir |
 |---|---|---|---|
 | **01 · Futbolistas EA Sports FC** | 17.737 jugadores y jugadoras | ¿Cuántos jugadores tiene cada equipo (y por qué el Liverpool tiene 66)? ¿Qué liga es mejor y cuál más igualada? ¿A qué edad se alcanza el pico? ¿Por qué `DEF` tiene dos jorobas? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/01_fifa_jugadores.ipynb) |
-| **02 · Felicidad mundial** | 149 países (World Happiness Report 2021) | ¿Da el dinero la felicidad? ¿Qué región es más desigual? ¿Dónde está España? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/02_felicidad_mundial.ipynb) |
+| **02 · Felicidad mundial** | 149 países (World Happiness Report 2021) | ¿De qué depende la felicidad? ¿Da el dinero la felicidad? ¿Qué región es más desigual? ¿Dónde está España? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/02_felicidad_mundial.ipynb) |
 | **03 · Géneros musicales** | 50.000 canciones de Spotify | ¿Qué género es más bailable? ¿Rap y Hip-Hop son lo mismo? ¿Canciones de 80 minutos? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/03_generos_musicales.ipynb) |
 | **04 · Las trampas de la media** | Anscombe, Datasaurus, Berkeley 1973 | ¿Qué pasa con la media cuando Bill Gates entra en un bar? ¿Cuál de estos 13 conjuntos con los mismos estadísticos es un dinosaurio? ¿Discriminaba Berkeley a las mujeres? | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DANIFUZZY1975/estadistica-descriptiva-python/blob/main/notebooks/04_trampas_de_la_media.ipynb) |
 
@@ -28,6 +28,7 @@ Se abren directamente en Google Colab: no hace falta instalar nada ni subir fich
 | La trampa de los grupos pequeños / medias no ponderadas | ✅ | ✅ | | ✅ |
 | Tablas de contingencia (`crosstab`) | ✅ | | ✅ | |
 | Covarianza y correlación | ✅ | ✅ | ✅ | ✅ |
+| Variables explicativas correlacionadas, correlación ≠ causalidad, falacia ecológica | | ✅ | | |
 | Regla empírica vs. Chebyshev | ✅ | ✅ | | |
 | Limpieza: faltantes disfrazados (`?`, `-1`), duplicados | | | ✅ | |
 | Regresión lineal por mínimos cuadrados: $R^2$, residuos, predicción y extrapolación | ✅ | ✅ | ✅ | ✅ |
