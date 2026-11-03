@@ -3,13 +3,14 @@
 #
 # **Estadística Descriptiva · 1.º Grado en Ciencia de Datos · UCM**
 #
-# Cuatro historias cortas en las que los números resumen **mienten** (o, mejor dicho, no cuentan toda la verdad):
+# Seis historias cortas en las que los números resumen **mienten** (o, mejor dicho, no cuentan toda la verdad):
 #
 # 1. **Bill Gates entra en un bar**: la media se vuelve loca y la mediana ni se inmuta.
 # 2. **El cuarteto de Anscombe** (1973): cuatro conjuntos con la misma media, varianza, correlación… y **la misma recta de regresión**.
 # 3. **El Datasaurus**: trece conjuntos con los mismos estadísticos. Uno de ellos es un dinosaurio.
 # 4. **Cinco distribuciones con el mismo diagrama de caja**.
 # 5. **La paradoja de Simpson**: ¿discriminaba la Universidad de Berkeley a las mujeres en 1973?
+# 6. **Jabba entra en la cantina**: un solo personaje de Star Wars cambia la media, la desviación típica y la correlación.
 
 # %%
 # (el bloque de configuración común se inserta aquí)
@@ -19,7 +20,7 @@
 # ---
 # # 🕐 Sesión 1 de 1 · Por qué hay que dibujar los datos
 # **Objetivos:** robustez de la media y la mediana, límites de los resúmenes numéricos y del R², paradoja de Simpson.  
-# **Apartados:** 1 a 5 · **Duración orientativa:** 2 horas
+# **Apartados:** 1 a 6 · **Duración orientativa:** 2 horas
 
 # %% [markdown]
 # ## 1. Bill Gates entra en un bar
@@ -216,13 +217,74 @@ for s, g in berkeley.groupby("sexo"):
 # con la felicidad (media de países ≠ media de personas) y con los futbolistas (el exponente peso–altura con hombres y mujeres juntos).
 
 # %% [markdown]
+# ## 6. 🌌 Jabba entra en la cantina (Star Wars)
+# Volvemos a la idea de Bill Gates con datos de verdad: altura y masa de 87 personajes de Star Wars.
+
+# %%
+sw = pd.read_csv(URL_DATOS + "star_wars.csv")
+print(sw.dtypes)
+sw[["name", "height", "mass", "species"]].head(16)
+
+# %% [markdown]
+# 🤔 **Primer misterio:** `height` es numérica (`float64`), pero `mass` es **texto**. ¿Por qué? Busca la fila de Jabba:
+
+# %%
+sw[sw["name"].str.contains("Jabba")][["name", "height", "mass"]]
+
+# %% [markdown]
+# Jabba pesa `"1,358"`: la coma es el **separador de miles** (1.358 kg). Basta un solo valor así para que pandas lea toda la columna
+# como texto. Lo arreglamos quitando la coma y convirtiendo a número:
+
+# %%
+sw["masa"] = pd.to_numeric(sw["mass"].str.replace(",", ""))
+print("Valores faltantes en masa:", sw["masa"].isna().sum(), "de", len(sw))
+
+# %% [markdown]
+# (Otra forma: `pd.read_csv(..., thousands=",")`. Y fíjate: falta la masa de casi un tercio de los personajes.)
+#
+# **Segundo misterio:** ¿cuánto pesa el personaje típico? ¿Y si sacamos a Jabba de la cantina?
+
+# %%
+sin_jabba = sw[~sw["name"].str.contains("Jabba")]
+pd.DataFrame({
+    "con Jabba": sw["masa"].agg(["count", "mean", "median", "std"]),
+    "sin Jabba": sin_jabba["masa"].agg(["count", "mean", "median", "std"]),
+}).round(1)
+
+# %% [markdown]
+# Un solo personaje sube la media de 76 a 97 kg y multiplica por casi **6** la desviación típica. La mediana ni se mueve.
+#
+# **Tercer misterio:** ¿están relacionadas la altura y la masa?
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+for ax, (titulo, datos) in zip(axes, [("Con Jabba", sw), ("Sin Jabba", sin_jabba)]):
+    d = datos.dropna(subset=["height", "masa"])
+    b = d["height"].cov(d["masa"]) / d["height"].var()
+    a = d["masa"].mean() - b * d["height"].mean()
+    r = d["height"].corr(d["masa"])
+    ax.scatter(d["height"], d["masa"], s=40, color=AZUL, alpha=0.7)
+    xs = np.linspace(d["height"].min(), d["height"].max(), 50)
+    ax.plot(xs, a + b * xs, color=NARANJA, lw=2)
+    ax.set_title(f"{titulo}:  r = {r:.2f},  R² = {r ** 2:.2f}")
+    ax.set_xlabel("altura (cm)"); ax.set_ylabel("masa (kg)")
+axes[0].annotate("Jabba", (175, 1358), xytext=(10, -5), textcoords="offset points")
+plt.tight_layout(); plt.show()
+
+# %% [markdown]
+# 🎯 Con Jabba, la correlación es casi nula ($r \approx 0{,}13$). Sin él, ¡$r \approx 0{,}76$! **Un solo punto** puede esconder una
+# relación clarísima (o, como en el conjunto IV de Anscombe, inventarse una). Por eso siempre hay que **dibujar** y mirar los atípicos
+# antes de fiarse de un coeficiente.
+
+# %% [markdown]
 # ### 🚀 Retos de la sesión 1
 # 1. En el bar, ¿cuántos Bill Gates hacen falta para que la **mediana** cambie de forma apreciable? ¿Y el IQR?
 # 2. Ajusta los modelos lineal, potencial y exponencial al conjunto II de Anscombe (con las fórmulas de los otros notebooks). ¿Alguno sirve? Prueba a ajustar una parábola con `np.polyfit(x, y, 2)`.
 # 3. En el conjunto III, quita el atípico y recalcula la recta. ¿Cuánto cambian la pendiente y el $R^2$?
 # 4. Calcula la asimetría y la curtosis de los 13 conjuntos del Datasaurus (para `x` y para `y`). ¿Se distinguen ahora?
 # 5. Inventa tu propio "bar": una muestra de 20 números donde la media sea 50, pero ningún dato esté entre 40 y 60.
+# 6. En Star Wars, calcula la altura media y mediana **por especie** (solo especies con al menos 2 personajes). ¿Quién es más alto, un wookiee o un gungan?
+# 7. Los droides tienen `NA` en `hair_color`. ¿Es lo mismo "no sabemos su color de pelo" que "no tiene pelo"? ¿Cómo lo distinguirías?
 #
 # ---
 # 🏁 **Fin del notebook.**
-

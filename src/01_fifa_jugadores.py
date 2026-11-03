@@ -7,6 +7,11 @@
 # (`PAC` ritmo, `SHO` tiro, `PAS` pase, `DRI` regate, `DEF` defensa, `PHY` físico), decenas de atributos
 # detallados, y datos como edad, altura, posición, liga, equipo y nacionalidad.
 #
+# ### 💼 El encargo
+# Sois el departamento de datos de un club **con poco presupuesto**. La dirección deportiva quiere saber en qué **ligas** y a qué
+# **edad** se encuentran los jugadores con mejor relación calidad/edad, qué jugadores son **excepcionales** en algún atributo y si los
+# datos que compramos son fiables (¿por qué el Liverpool tiene 66 jugadores?). Al final de cada sesión, pensad qué le diríais al club.
+#
 # Preguntas que vamos a responder:
 # - ¿Cómo es el jugador "típico"? ¿Media, mediana o moda?
 # - ¿Qué **liga** es mejor… y cuál es más **igualada**?

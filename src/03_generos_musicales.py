@@ -9,16 +9,21 @@
 # Este dataset es **sucio a propósito** (como los de verdad): tiene filas vacías, interrogantes en vez de números,
 # duraciones de −1 ms, artistas llamados `empty_field`… Antes de calcular una sola media hay que **limpiar**.
 #
+# ### 💼 El encargo
+# Una **discográfica** quiere fabricar éxitos y os pregunta: *¿qué receta tienen las canciones populares?* Para contestar bien hay que
+# limpiar los datos, conocer cada variable y comparar géneros. El informe final para la discográfica está en el apartado 11.
+#
 # Preguntas que vamos a responder:
 # - ¿Qué género es el más **bailable**? ¿Y el más **popular**? ¿Media o mediana?
 # - ¿Por qué la media de popularidad de la clásica está **por debajo** de su mediana?
 # - ¿Existen canciones de **80 minutos**? (spoiler: sí, pero no son canciones)
 # - ¿Rap y Hip-Hop son, estadísticamente, el mismo género?
+# - ¿Se puede **fabricar** una canción de éxito?
 #
 # **Plan de trabajo (3 sesiones de 2 h):**
 # - 🕐 Sesión 1 · Datos sucios y una variable (apartados 1–4)
 # - 🕐 Sesión 2 · Formas, atípicos y comparación de géneros (5–7)
-# - 🕐 Sesión 3 · Dos variables: correlación y regresión (8–10)
+# - 🕐 Sesión 3 · Dos variables: correlación, regresión y el encargo de la discográfica (8–11)
 
 # %%
 # (el bloque de configuración común se inserta aquí)
@@ -341,9 +346,9 @@ disp.sort_values("CV_energy_%").style.background_gradient(cmap="Oranges")
 
 # %% [markdown]
 # ---
-# # 🕐 Sesión 3 de 3 · Dos variables: correlación y regresión
+# # 🕐 Sesión 3 de 3 · Dos variables: correlación, regresión y un encargo de negocio
 # **Objetivos:** correlación, regresión lineal y exponencial, dominio de los modelos, la trampa del R² en logaritmos, duplicados.  
-# **Apartados:** 8 a 10 · **Duración orientativa:** 2 horas
+# **Apartados:** 8 a 11 · **Duración orientativa:** 2 horas
 # > 💡 Si abres el notebook en una sesión nueva, ejecuta antes todas las celdas anteriores: menú *Entorno de ejecución → Ejecutar las celdas anteriores* (Ctrl+F8).
 
 # %% [markdown]
@@ -476,6 +481,94 @@ pd.crosstab(dup["music_genre"], "repeticiones").sort_values("repeticiones", asce
 
 # %% [markdown]
 # 🤔 Si una canción está a la vez en *Rap* y en *Hip-Hop*, ¿qué hace eso con las comparaciones del apartado 7?
+
+# %% [markdown]
+# ## 11. 💼 El encargo: una discográfica quiere fabricar un éxito
+# Una discográfica nos contrata: *"Queremos producir canciones que sean éxitos. ¿Qué receta tienen las canciones populares:
+# más bailables, más fuertes, más cortas…?"*. Vamos a contestarles con lo que sabemos de estadística descriptiva.
+#
+# **Paso 1: definir qué es un "éxito".** Diremos que es una canción del **10 % más popular** (por encima del percentil 90).
+# Quitamos antes las canciones con popularidad 0, que ya vimos que son sospechosas.
+
+# %%
+canciones = df[df["popularity"] > 0].copy()
+umbral = canciones["popularity"].quantile(0.90)
+canciones["exito"] = canciones["popularity"] >= umbral
+print(f"Una canción es un éxito si su popularidad es ≥ {umbral:.0f}  ->  {canciones['exito'].sum()} éxitos de {len(canciones)} canciones")
+
+# %% [markdown]
+# **Paso 2: la receta "ingenua".** Comparamos la mediana de cada rasgo en los éxitos y en el resto:
+
+# %%
+rasgos_exito = ["danceability", "energy", "valence", "acousticness", "instrumentalness", "speechiness", "loudness", "tempo", "duracion_min"]
+receta = canciones.groupby("exito")[rasgos_exito].median().T
+receta.columns = ["resto", "éxitos"]
+receta["diferencia"] = receta["éxitos"] - receta["resto"]
+receta.round(3)
+
+# %% [markdown]
+# Parece que la receta es clara: los éxitos son **más bailables**, **más fuertes** (más dB), **menos acústicos** y algo **más cortos**.
+# ¿Le decimos a la discográfica que haga canciones bailables y a todo volumen?
+#
+# 🤔 **Antes de contestar:** ¿de qué **géneros** son esos éxitos?
+
+# %%
+reparto_exitos = 100 * canciones.loc[canciones["exito"], "music_genre"].value_counts(normalize=True)
+pct_exito = 100 * canciones.groupby("music_genre")["exito"].mean().sort_values()
+
+fig, axes = plt.subplots(1, 2, figsize=(15, 4.5))
+reparto_exitos.sort_values().plot.barh(ax=axes[0], color=AZUL)
+axes[0].set_title("¿De qué género son los éxitos? (% de todos los éxitos)"); axes[0].set_xlabel("%"); axes[0].set_ylabel("")
+pct_exito.plot.barh(ax=axes[1], color=NARANJA)
+axes[1].set_title("¿Qué % de las canciones de cada género es un éxito?"); axes[1].set_xlabel("%"); axes[1].set_ylabel("")
+plt.tight_layout(); plt.show()
+print(f"Rap + Rock + Hip-Hop reúnen el {reparto_exitos[['Rap', 'Rock', 'Hip-Hop']].sum():.0f} % de los éxitos.")
+
+# %% [markdown]
+# 💡 Los éxitos son casi todos de **Rap, Rock y Hip-Hop**. Y esos géneros ya son, de por sí, bailables, fuertes y poco acústicos.
+# ¿La "receta" del paso 2 es de los éxitos… o simplemente de esos géneros? Es la **paradoja de Simpson** otra vez:
+# hay que comparar **dentro de cada género**.
+#
+# **Paso 3: ¿cuánto explica el género?** Usamos la **razón de correlación** $\eta^2$: qué parte de la variabilidad de la popularidad
+# se debe a las diferencias **entre** géneros.
+# $$ \eta^2 = \frac{\text{varianza de las medias de cada género (ponderada)}}{\text{varianza total}} = 1 - \frac{\sum (y_i - \bar y_{\text{género}})^2}{\sum (y_i - \bar y)^2}$$
+
+# %%
+media_genero = canciones.groupby("music_genre")["popularity"].transform("mean")   # a cada canción, la media de su género
+y = canciones["popularity"]
+eta2 = 1 - ((y - media_genero) ** 2).sum() / ((y - y.mean()) ** 2).sum()
+print(f"η² = {eta2:.3f}: el género explica el {100 * eta2:.0f} % de la variabilidad de la popularidad")
+
+r2_baile = canciones["popularity"].corr(canciones["danceability"]) ** 2
+print(f"R² de la bailabilidad sola: {r2_baile:.3f}  ({100 * r2_baile:.0f} %)")
+
+# %% [markdown]
+# **Paso 4: la receta dentro de cada género.** Calculamos la correlación de cada rasgo con la popularidad **dentro** de cada género:
+
+# %%
+corr_dentro = pd.DataFrame({
+    genero: [g["popularity"].corr(g[v]) for v in rasgos_exito]
+    for genero, g in canciones.groupby("music_genre")
+}, index=rasgos_exito).T
+
+plt.figure(figsize=(11, 5.5))
+sns.heatmap(corr_dentro, annot=True, fmt=".2f", cmap="RdBu_r", center=0, vmin=-0.5, vmax=0.5, linewidths=1.5, linecolor="white")
+plt.title("Correlación de cada rasgo con la popularidad, DENTRO de cada género"); plt.ylabel("")
+plt.show()
+
+print("Correlación con la popularidad, todas las canciones juntas:")
+print(canciones[rasgos_exito].corrwith(canciones["popularity"]).round(2).to_string())
+
+# %% [markdown]
+# 🎯 **El informe para la discográfica:**
+# 1. Con todas las canciones juntas, la bailabilidad tiene $r \approx 0{,}34$ con la popularidad. **Dentro** de cada género, 9 de cada 10
+#    correlaciones están entre −0,1 y 0,1, y ninguna llega a 0,25. La "receta" casi desaparece al comparar canciones del mismo género.
+# 2. Lo que más pesa es **el mercado**: el género explica en torno al 64 % de las diferencias de popularidad. Hacer un buen tema de
+#    jazz no lo pondrá a la altura de un tema de rap normal.
+# 3. Lo que de verdad hace un éxito **no está en estos datos**: el artista, la promoción, las listas de reproducción, el momento…
+#    La estadística descriptiva también sirve para decir **"con estos datos no se puede contestar a eso"**.
+#
+# 🤔 **Para discutir en clase:** si fuerais la discográfica, ¿os sirve este análisis? ¿Qué datos pediríais para hacerlo mejor?
 
 # %% [markdown]
 # ### 🚀 Retos de la sesión 3

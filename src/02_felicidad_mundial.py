@@ -6,6 +6,11 @@
 # Cada fila es un **país** (149). La variable estrella es el **Ladder score**: la puntuación media (0–10)
 # que dan los habitantes a la pregunta *"imagina una escalera donde 10 es la mejor vida posible y 0 la peor: ¿en qué peldaño estás?"*.
 #
+# ### 💼 El encargo
+# Un **ministerio** (o una ONG internacional) tiene que decidir en qué invertir para mejorar el bienestar: ¿crecimiento económico,
+# sanidad, redes de apoyo, libertades? Os piden un informe: ¿de qué depende la felicidad de un país y qué podemos (y qué **no**)
+# concluir con estos datos?
+#
 # En este notebook vamos a responder preguntas como:
 # - ¿Cuál es el país "típico"? ¿Media o mediana?
 # - ¿Qué región del mundo es más feliz… y cuál es más **desigual**?
